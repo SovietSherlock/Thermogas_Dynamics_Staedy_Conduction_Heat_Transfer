@@ -53,7 +53,7 @@ class  Math_Model(Init_Parameters):
     def __init__(self):
         super().__init__()
 
-    def ODE_system_fuel_rod_plane(self):
+    def ODE_fuel_rod_plane(self):
         # функция описания математической модели для тепловыделяющей пластины:
         x = sp.Symbol('x')
         t = sp.Function('t')(x)
@@ -64,7 +64,7 @@ class  Math_Model(Init_Parameters):
         }
         return sp.dsolve(eq, t, ics=ics)
 
-    def ODE_system_fuel_rod_cylinder(self):
+    def ODE_fuel_rod_cylinder(self):
         # функция описания математической модели для тепловыделяющего цилиндра:
         r = sp.Symbol('r')
         t = sp.Function('t')(r)
@@ -76,7 +76,7 @@ class  Math_Model(Init_Parameters):
         return sp.dsolve(eq, t, ics=ics)
 
 
-    def ODE_system_shell_plane(self,):
+    def ODE_shell_plane(self,):
         # функция описания математической модели для оболочки пластины с условием установки а):
         x = sp.Symbol('x')
         t = sp.Function('t')(x)
@@ -87,7 +87,7 @@ class  Math_Model(Init_Parameters):
         }
         return sp.dsolve(eq, t, ics=ics)
 
-    def ODE_system_shell_cylinder(self):
+    def ODE_shell_cylinder(self):
         # функция описания математической модели для оболочки цилиндра с условием установки а):
         r = sp.Symbol('r')
         t = sp.Function('t')(r)
@@ -98,18 +98,25 @@ class  Math_Model(Init_Parameters):
         }
         return sp.dsolve(eq, t, ics=ics)
 
-    def ODE_system_shell_plane_air(self,):
+    def ODE_shell_plane_air(self,):
         # функция описания математической модели для оболочки пластины с условием установки б):
-        return
+        x = sp.Symbol('x')
+        t = sp.Function('t')(x)
+        eq = sp.Eq(t.diff(x,x), 0)
+        ics = {
+            t.subs(x, 0): self.t_c,
+            t.subs(x, self.delta): self.t_02
+        }
+        return sp.dsolve(eq, t, ics=ics)
 
-    def ODE_system_shell_cylinder_air(self):
+    def ODE_shell_cylinder_air(self):
         # функция описания математической модели для оболочки цилиндра с условием установки б):
         return
 
-    def ODE_system_shell_plane_helium(self,):
+    def ODE_shell_plane_helium(self,):
         # функция описания математической модели для оболочки пластины с условием установки в):
         return
 
-    def ODE_system_shell_cylinder_helium(self):
+    def ODE_shell_cylinder_helium(self):
         # функция описания математической модели для оболочки цилиндра с условием установки в):
         return
