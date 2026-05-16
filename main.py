@@ -40,8 +40,8 @@ class Init_Parameters:
         self.lambda_he = 0.28 # коэффициент теплопроводности He, Вт/(м*град)
 
         # геометрические параметры системы:
-        self.delta = 1e-3 # толщина защитной оболочки, м
-        self.d = 15e-3 # толщина пластины (2*delta) или диаметр сплошного цилиндра (2*r_c), м
+        self.delta = 1e-3 # толщина защитной оболочки пластины, м
+        self.d = 15e-3 # толщина пластины (2*Delta) или диаметр сплошного цилиндра (2*r_c), м
         self.c = 0.05e-3 # толщина зазора, м
 
 class  Math_Model(Init_Parameters):
@@ -100,12 +100,13 @@ class  Math_Model(Init_Parameters):
 
     def ODE_shell_plane_air(self,):
         # функция описания математической модели для оболочки пластины с условием установки б):
+        t_01 = self.q_v*self.delta**2/self.lambda_s + self.t_02
         x = sp.Symbol('x')
         t = sp.Function('t')(x)
         eq = sp.Eq(t.diff(x,x), 0)
         ics = {
             t.subs(x, 0): self.t_c,
-            t.subs(x, self.delta): self.t_02
+            t.subs(x, self.delta): t_01
         }
         return sp.dsolve(eq, t, ics=ics)
 
