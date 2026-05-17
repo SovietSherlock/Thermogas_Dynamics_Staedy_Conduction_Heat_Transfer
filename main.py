@@ -491,15 +491,185 @@ class Simulation(Math_Model):
         print("=" * 80)
         return self.results
 
+        # ==================== РАСЧЕТ КРИТИЧЕСКОЙ МОЩНОСТИ q_e ====================
 
-# Пример использования
-if __name__ == "__main__":
-    sim = Simulation()
+    def calculate_qe_from_models(self):
+        """
+        Расчет критической мощности q_e на основе аналитических формул из Math_Model
+        """
+        # Сохраняем текущее значение q_v
+        original_q_v = self.q_v
 
-    # Запуск всех расчетов с сохранением CSV
-    results = sim.run_all_tables(num_points=20, save_csv=True)
+        # Временно устанавливаем символьное q_v для расчетов
+        q_v_sym = sp.Symbol('q_v', positive=True)
+        self.q_v = q_v_sym
 
-    # Или отдельный расчет
-    # df = sim.get_plane_ideal_contact_table(num_points=10)
-    # sim.print_table(df, "Моя таблица", num_rows=5)
-    # sim.save_table_to_csv(df, "my_table.csv")
+        results = {}
+
+        try:
+            # ========== ПЛАСТИНА ==========
+
+            # 1. Пластина, идеальный контакт
+            fuel_sol = self.ODE_fuel_rod_plane()
+            t_center = fuel_sol.rhs.subs(self.x, 0)
+            # Приравниваем к t_m и решаем относительно q_v
+            eq_ideal = sp.Eq(t_center, self.t_m)
+            qe_ideal = sp.solve(eq_ideal, q_v_sym)
+            results['plane_ideal'] = float(qe_ideal[0]) if qe_ideal else None
+
+            # 2. Пластина, воздушный зазор
+            # Получаем выражение для температуры после зазора
+            _, t_01 = self.ODE_clearance_plane_air()
+            # Перепад в оболочке
+            q_flow = q_v_sym * (self.d / 2)
+            delta_shell = q_flow * self.delta / self.lambda_s
+            t_surface = t_01 - delta_shell
+            # Температура в центре
+            t_center_air = fuel_sol.rhs.subs(self.x, 0) + (self.t_02_r - t_surface)
+            eq_air = sp.Eq(t_center_air, self.t_m)
+            qe_air = sp.solve(eq_air, q_v_sym)
+            results['plane_air'] = float(qe_air[0]) if qe_air else None
+
+            # 3. Пластина, гелиевый зазор
+            _, t_01_he = self.ODE_clearance_plane_helium()
+            delta_shell_he = q_flow * self.delta / self.lambda_s
+            t_surface_he = t_01_he - delta_shell_he
+            t_center_he = fuel_sol.rhs.subs(self.x, 0) + (self.t_02_r - t_surface_he)
+            eq_he = sp.Eq(t_center_he, self.t_m)
+            qe_he = sp.solve(eq_he, q_v_sym)
+            results['plane_helium'] = float(qe_he[0]) if qe_he else None
+
+            # ========== ЦИЛИНДР ==========
+
+            # 4. Цилиндр, идеальный контакт
+            fuel_sol_cyl = self.ODE_fuel_rod_cylinder()
+            t_center_cyl = fuel_sol_cyl.rhs.subs(self.r, 0)
+            eq_cyl_ideal = sp.Eq(t_center_cyl, self.t_m)
+            qe_cyl_ideal = sp.solve(eq_cyl_ideal, q_v_sym)
+            results['cylinder_ideal'] = float(qe_cyl_ideal[0]) if qe_cyl_ideal else None
+
+            # 5. Цилиндр, воздушный зазор
+            _, t_01_cyl_air = self.ODE_clearance_cylinder_air()
+            t_center_cyl_air = fuel_sol_cyl.rhs.subs(self.r, 0) + (self.t_02_r - t_01_cyl_air)
+            eq_cyl_air = sp.Eq(t_center_cyl_air, self.t_m)
+            qe_cyl_air = sp.solve(eq_cyl_air, q_v_sym)
+            results['cylinder_air'] = float(qe_cyl_air[0]) if qe_cyl_air else None
+
+            # 6. Цилиндр, гелиевый зазор
+            _, t_01_cyl_he = self.ODE_clearance_cylinder_helium()
+            t_center_cyl_he = fuel_sol_cyl.rhs.subs(self.r, 0) + (self.t_02_r - t_01_cyl_he)
+            eq_cyl_he = sp.Eq(t_center_cyl_he, self.t_m)
+            qe_cyl_he = sp.solve(eq_cyl_he, q_v_sym)
+            results['cylinder_helium'] = float(qe_cyl_he[0]) if qe_cyl_he else None
+
+        finally:
+            # Восстанавливаем исходное значение q_v
+            self.q_v = original_q_v
+
+        return results
+
+    def print_qe_results(self):
+        """Вывод результатов расчета критической мощности"""
+        print("\n" + "=" * 80)
+        print("РАСЧЕТ КРИТИЧЕСКОЙ МОЩНОСТИ ТЕПЛОВЫДЕЛЕНИЯ q_e")
+        print("=" * 80)
+        print(f"Исходные условия:")
+        print(f"  Максимальная допустимая температура сердечника t_m = {self.t_m} °C")
+        print(f"  Температура наружной поверхности оболочки t_02_r = {self.t_02_r} °C")
+        print(f"  Разница температур: Δt_max = {self.t_m - self.t_02_r} °C")
+
+        qe_results = self.calculate_qe_from_models()
+
+        print("\n" + "-" * 50)
+        print("РЕЗУЛЬТАТЫ РАСЧЕТА q_e:")
+        print("-" * 50)
+
+        names = {
+            'plane_ideal': 'Пластина, идеальный контакт',
+            'plane_air': 'Пластина, воздушный зазор',
+            'plane_helium': 'Пластина, гелиевый зазор',
+            'cylinder_ideal': 'Цилиндр, идеальный контакт',
+            'cylinder_air': 'Цилиндр, воздушный зазор',
+            'cylinder_helium': 'Цилиндр, гелиевый зазор'
+        }
+
+        for key, name in names.items():
+            qe = qe_results.get(key)
+            if qe:
+                print(f"\n{name}:")
+                print(f"  q_e = {qe:.2e} Вт/м³ = {qe / 1e6:.2f} МВт/м³")
+
+        # Сравнение с текущим q_v
+        print("\n" + "-" * 50)
+        print("СРАВНЕНИЕ С ТЕКУЩИМ РЕЖИМОМ:")
+        print("-" * 50)
+        print(f"Текущая мощность: q_v = {self.q_v / 1e6:.2f} МВт/м³")
+
+        for key, name in names.items():
+            qe = qe_results.get(key)
+            if qe:
+                margin = qe / self.q_v
+                if margin > 1.2:
+                    status = "✅ БЕЗОПАСНО"
+                elif margin > 1.0:
+                    status = "⚠️ ПРЕДЕЛЬНО"
+                else:
+                    status = "❌ ОПАСНО"
+                print(f"  {name:35}: запас = {margin:.3f} → {status}")
+
+        return qe_results
+
+    def get_qe_dataframe(self):
+        """Возвращает DataFrame с результатами расчета q_e"""
+        qe_results = self.calculate_qe_from_models()
+
+        data = []
+        for key, qe in qe_results.items():
+            if qe:
+                if 'plane' in key:
+                    geometry = 'Пластина'
+                else:
+                    geometry = 'Цилиндр'
+
+                if 'ideal' in key:
+                    contact = 'Идеальный контакт'
+                elif 'air' in key:
+                    contact = 'Воздушный зазор'
+                else:
+                    contact = 'Гелиевый зазор'
+
+                data.append({
+                    'Геометрия': geometry,
+                    'Тип контакта': contact,
+                    'q_e, Вт/м³': f"{qe:.2e}",
+                    'q_e, МВт/м³': round(qe / 1e6, 2),
+                    'Запас прочности': round(qe / self.q_v, 3)
+                })
+
+        df = pd.DataFrame(data)
+        return df
+
+
+sim = Simulation()
+
+# 1. Запуск расчетов температурных полей
+results = sim.run_all_tables(num_points=20, save_csv=True)
+
+# 2. Расчет критической мощности q_e
+print("\n" + "=" * 80)
+print("ЗАПУСК РАСЧЕТА КРИТИЧЕСКОЙ МОЩНОСТИ")
+print("=" * 80)
+
+# Вывод результатов
+qe_results = sim.print_qe_results()
+
+# Получение DataFrame
+df_qe = sim.get_qe_dataframe()
+print("\n" + "=" * 80)
+print("ТАБЛИЦА КРИТИЧЕСКИХ МОЩНОСТЕЙ")
+print("=" * 80)
+print(df_qe.to_string(index=False))
+
+# Сохранение в CSV
+df_qe.to_csv("critical_power.csv", index=False, encoding='utf-8-sig')
+print("\n✓ Таблица критических мощностей сохранена в 'critical_power.csv'")
