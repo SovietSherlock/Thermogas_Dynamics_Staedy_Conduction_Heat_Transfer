@@ -190,3 +190,11 @@ class  Math_Model(Init_Parameters):
         }
         return sp.dsolve(eq, t, ics=ics)
 
+
+
+class Simulation(Math_Model):
+    # Класс аналитического решения дифференциальных уравнений при заданных начальных условиях
+
+    def __init__(self):
+        super().__init__()
+
