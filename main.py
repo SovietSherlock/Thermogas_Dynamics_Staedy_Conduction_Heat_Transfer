@@ -231,7 +231,7 @@ class Simulation(Math_Model):
         self.r = sp.Symbol('r')
 
     def solution_to_numpy(self, solution, coord_var, coord_range, num_points=100):
-        """Преобразует sympy решение в numpy массивы"""
+        # Преобразует sympy решение в numpy массивы
         if solution is None:
             raise ValueError("Решение не найдено")
 
@@ -250,15 +250,24 @@ class Simulation(Math_Model):
 
     # ==================== ПЛАСТИНА - ИДЕАЛЬНЫЙ КОНТАКТ ====================
 
-    def get_plane_ideal_contact_table(self, num_points=20):
+    def get_plane_ideal_contact_table(self, num_points=None):
+        # Таблица для пластины с идеальным контактом (случай а)
+
+        # Расчёт количества точек для шага 1/16 от d/2
+        step_m = (self.d / 2) / 16  # шаг в метрах
+        num_points_fuel = 17  # 0, 1/16, 2/16, ..., 16/16 = 17 точек
+
         fuel_solution = self.ODE_fuel_rod_plane()
-        shell_solution = self.ODE_shell_plane()  # без зазора
+        shell_solution = self.ODE_shell_plane()
 
         x_fuel_m, t_fuel = self.solution_to_numpy(
-            fuel_solution, self.x, (0, self.d / 2), num_points
+            fuel_solution, self.x, (0, self.d / 2), num_points_fuel
         )
+
+        # Для оболочки также используется 17 точек, для соответствия шага
+        num_points_shell = 17
         x_shell_m, t_shell = self.solution_to_numpy(
-            shell_solution, self.x, (self.d / 2, self.d / 2 + self.delta), num_points
+            shell_solution, self.x, (self.d / 2, self.d / 2 + self.delta), num_points_shell
         )
 
         x_total_m = np.concatenate([x_fuel_m, x_shell_m[1:]])
@@ -274,15 +283,18 @@ class Simulation(Math_Model):
 
     # ==================== ЦИЛИНДР - ИДЕАЛЬНЫЙ КОНТАКТ ====================
 
-    def get_cylinder_ideal_contact_table(self, num_points=100):
+    def get_cylinder_ideal_contact_table(self, num_points=17):
+        # Таблица для цилиндра с идеальным контактом (случай а)
         fuel_solution = self.ODE_fuel_rod_cylinder()
         shell_solution = self.ODE_shell_cylinder()
 
+        num_points_layer = 17
+
         r_fuel_m, t_fuel = self.solution_to_numpy(
-            fuel_solution, self.r, (0, self.d / 2), num_points
+            fuel_solution, self.r, (0, self.d / 2), num_points_layer
         )
         r_shell_m, t_shell = self.solution_to_numpy(
-            shell_solution, self.r, (self.d / 2, self.d / 2 + self.delta), num_points
+            shell_solution, self.r, (self.d / 2, self.d / 2 + self.delta), num_points_layer
         )
 
         r_total_m = np.concatenate([r_fuel_m, r_shell_m[1:]])
@@ -298,20 +310,23 @@ class Simulation(Math_Model):
 
     # ==================== ПЛАСТИНА - ВОЗДУШНЫЙ ЗАЗОР ====================
 
-    def get_plane_air_gap_table(self, num_points=100):
+    def get_plane_air_gap_table(self, num_points=17):
+        # Таблица для пластины с воздушным зазором (случай б)
         fuel_solution = self.ODE_fuel_rod_plane()
         clearance_solution, t_01 = self.ODE_clearance_plane_air()
+        shell_solution = self.ODE_shell_plane_air()
 
-        shell_solution = self.ODE_shell_plane_air()  # использует self.t_01_p_a
+        # 17 точек для каждого слоя (0, 1/16, ..., 16/16 от толщины слоя)
+        num_points_layer = 17
 
         x_fuel_m, t_fuel = self.solution_to_numpy(
-            fuel_solution, self.x, (0, self.d / 2), num_points
+            fuel_solution, self.x, (0, self.d / 2), num_points_layer
         )
         x_clearance_m, t_clearance = self.solution_to_numpy(
-            clearance_solution, self.x, (self.d / 2, self.d / 2 + self.c), num_points
+            clearance_solution, self.x, (self.d / 2, self.d / 2 + self.c), num_points_layer
         )
         x_shell_m, t_shell = self.solution_to_numpy(
-            shell_solution, self.x, (self.d / 2 + self.c, self.d / 2 + self.c + self.delta), num_points
+            shell_solution, self.x, (self.d / 2 + self.c, self.d / 2 + self.c + self.delta), num_points_layer
         )
 
         x_total_m = np.concatenate([x_fuel_m, x_clearance_m[1:], x_shell_m[1:]])
@@ -327,20 +342,22 @@ class Simulation(Math_Model):
 
     # ==================== ПЛАСТИНА - ГЕЛИЕВЫЙ ЗАЗОР ====================
 
-    def get_plane_helium_gap_table(self, num_points=100):
+    def get_plane_helium_gap_table(self, num_points=17):
+        # Таблица для пластины с гелиевым зазором (случай в)
         fuel_solution = self.ODE_fuel_rod_plane()
         clearance_solution, t_01 = self.ODE_clearance_plane_helium()
+        shell_solution = self.ODE_shell_plane_he()
 
-        shell_solution = self.ODE_shell_plane_he()  # использует self.t_01_p_h
+        num_points_layer = 17
 
         x_fuel_m, t_fuel = self.solution_to_numpy(
-            fuel_solution, self.x, (0, self.d / 2), num_points
+            fuel_solution, self.x, (0, self.d / 2), num_points_layer
         )
         x_clearance_m, t_clearance = self.solution_to_numpy(
-            clearance_solution, self.x, (self.d / 2, self.d / 2 + self.c), num_points
+            clearance_solution, self.x, (self.d / 2, self.d / 2 + self.c), num_points_layer
         )
         x_shell_m, t_shell = self.solution_to_numpy(
-            shell_solution, self.x, (self.d / 2 + self.c, self.d / 2 + self.c + self.delta), num_points
+            shell_solution, self.x, (self.d / 2 + self.c, self.d / 2 + self.c + self.delta), num_points_layer
         )
 
         x_total_m = np.concatenate([x_fuel_m, x_clearance_m[1:], x_shell_m[1:]])
@@ -356,20 +373,22 @@ class Simulation(Math_Model):
 
     # ==================== ЦИЛИНДР - ВОЗДУШНЫЙ ЗАЗОР ====================
 
-    def get_cylinder_air_gap_table(self, num_points=100):
+    def get_cylinder_air_gap_table(self, num_points=17):
+        # Таблица для цилиндра с воздушным зазором (случай б)
         fuel_solution = self.ODE_fuel_rod_cylinder()
         clearance_solution, t_01 = self.ODE_clearance_cylinder_air()
+        shell_solution = self.ODE_shell_cylinder_air()
 
-        shell_solution = self.ODE_shell_cylinder_air()  # использует self.t_01_c_a
+        num_points_layer = 17
 
         r_fuel_m, t_fuel = self.solution_to_numpy(
-            fuel_solution, self.r, (0, self.d / 2), num_points
+            fuel_solution, self.r, (0, self.d / 2), num_points_layer
         )
         r_clearance_m, t_clearance = self.solution_to_numpy(
-            clearance_solution, self.r, (self.d / 2, self.d / 2 + self.c), num_points
+            clearance_solution, self.r, (self.d / 2, self.d / 2 + self.c), num_points_layer
         )
         r_shell_m, t_shell = self.solution_to_numpy(
-            shell_solution, self.r, (self.d / 2 + self.c, self.d / 2 + self.c + self.delta), num_points
+            shell_solution, self.r, (self.d / 2 + self.c, self.d / 2 + self.c + self.delta), num_points_layer
         )
 
         r_total_m = np.concatenate([r_fuel_m, r_clearance_m[1:], r_shell_m[1:]])
@@ -382,23 +401,24 @@ class Simulation(Math_Model):
         })
         self.results['cylinder_air'] = df
         return df
-
     # ==================== ЦИЛИНДР - ГЕЛИЕВЫЙ ЗАЗОР ====================
 
-    def get_cylinder_helium_gap_table(self, num_points=100):
+    def get_cylinder_helium_gap_table(self, num_points=17):
+        # Таблица для цилиндра с гелиевым зазором (случай в)
         fuel_solution = self.ODE_fuel_rod_cylinder()
         clearance_solution, t_01 = self.ODE_clearance_cylinder_helium()
+        shell_solution = self.ODE_shell_cylinder_he()
 
-        shell_solution = self.ODE_shell_cylinder_he()  # использует self.t_01_c_h
+        num_points_layer = 17
 
         r_fuel_m, t_fuel = self.solution_to_numpy(
-            fuel_solution, self.r, (0, self.d / 2), num_points
+            fuel_solution, self.r, (0, self.d / 2), num_points_layer
         )
         r_clearance_m, t_clearance = self.solution_to_numpy(
-            clearance_solution, self.r, (self.d / 2, self.d / 2 + self.c), num_points
+            clearance_solution, self.r, (self.d / 2, self.d / 2 + self.c), num_points_layer
         )
         r_shell_m, t_shell = self.solution_to_numpy(
-            shell_solution, self.r, (self.d / 2 + self.c, self.d / 2 + self.c + self.delta), num_points
+            shell_solution, self.r, (self.d / 2 + self.c, self.d / 2 + self.c + self.delta), num_points_layer
         )
 
         r_total_m = np.concatenate([r_fuel_m, r_clearance_m[1:], r_shell_m[1:]])
