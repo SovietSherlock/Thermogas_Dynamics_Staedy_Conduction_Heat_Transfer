@@ -231,73 +231,56 @@ class Simulation(Math_Model):
         self.r = sp.Symbol('r')
 
     def solution_to_numpy(self, solution, coord_var, coord_range, num_points=100):
-        """
-        Преобразует sympy решение в numpy массивы
-        """
+        """Преобразует sympy решение в numpy массивы"""
         if solution is None:
             raise ValueError("Решение не найдено")
 
-        # Проверяем, содержит ли решение переменную координаты
         rhs = solution.rhs
         free_symbols = rhs.free_symbols
 
-        # Если переменная координаты отсутствует в решении (константа)
         if coord_var not in free_symbols:
-            # Создаем массив координат
             coord_array_m = np.linspace(coord_range[0], coord_range[1], num_points)
-            # Температура постоянна
             temp_array = np.full(num_points, float(rhs))
             return coord_array_m, temp_array
 
-        # Если переменная присутствует, преобразуем как обычно
         temp_func = sp.lambdify(coord_var, rhs, 'numpy')
         coord_array_m = np.linspace(coord_range[0], coord_range[1], num_points)
         temp_array = temp_func(coord_array_m)
-
         return coord_array_m, temp_array
 
-    def get_plane_ideal_contact_table(self, num_points=20):
-        """Таблица для пластины с идеальным контактом (случай а)"""
+    # ==================== ПЛАСТИНА - ИДЕАЛЬНЫЙ КОНТАКТ ====================
 
+    def get_plane_ideal_contact_table(self, num_points=20):
         fuel_solution = self.ODE_fuel_rod_plane()
-        shell_solution = self.ODE_shell_plane()
+        shell_solution = self.ODE_shell_plane()  # без зазора
 
         x_fuel_m, t_fuel = self.solution_to_numpy(
             fuel_solution, self.x, (0, self.d / 2), num_points
         )
-
         x_shell_m, t_shell = self.solution_to_numpy(
             shell_solution, self.x, (self.d / 2, self.d / 2 + self.delta), num_points
         )
 
-        # Проверка, что t_shell - массив
-        print(f"t_fuel type: {type(t_fuel)}, shape: {t_fuel.shape if hasattr(t_fuel, 'shape') else 'scalar'}")
-        print(f"t_shell type: {type(t_shell)}, shape: {t_shell.shape if hasattr(t_shell, 'shape') else 'scalar'}")
-
-        # Объединяем данные (исключаем дублирование граничной точки)
         x_total_m = np.concatenate([x_fuel_m, x_shell_m[1:]])
         t_total = np.concatenate([t_fuel, t_shell[1:]])
-
         x_total_mm = x_total_m * 1000
 
         df = pd.DataFrame({
             'x, мм': np.round(x_total_mm, 4),
             'Температура, °C': np.round(t_total, 2)
         })
-
         self.results['plane_ideal'] = df
         return df
 
-    def get_cylinder_ideal_contact_table(self, num_points=100):
-        """Таблица для цилиндра с идеальным контактом (случай а)"""
+    # ==================== ЦИЛИНДР - ИДЕАЛЬНЫЙ КОНТАКТ ====================
 
+    def get_cylinder_ideal_contact_table(self, num_points=100):
         fuel_solution = self.ODE_fuel_rod_cylinder()
         shell_solution = self.ODE_shell_cylinder()
 
         r_fuel_m, t_fuel = self.solution_to_numpy(
             fuel_solution, self.r, (0, self.d / 2), num_points
         )
-
         r_shell_m, t_shell = self.solution_to_numpy(
             shell_solution, self.r, (self.d / 2, self.d / 2 + self.delta), num_points
         )
@@ -310,25 +293,23 @@ class Simulation(Math_Model):
             'r, мм': np.round(r_total_mm, 4),
             'Температура, °C': np.round(t_total, 2)
         })
-
         self.results['cylinder_ideal'] = df
         return df
 
-    def get_plane_air_gap_table(self, num_points=100):
-        """Таблица для пластины с воздушным зазором (случай б)"""
+    # ==================== ПЛАСТИНА - ВОЗДУШНЫЙ ЗАЗОР ====================
 
+    def get_plane_air_gap_table(self, num_points=100):
         fuel_solution = self.ODE_fuel_rod_plane()
-        clearance_solution = self.ODE_clearance_plane_air()
-        shell_solution = self.ODE_shell_plane_gas()
+        clearance_solution, t_01 = self.ODE_clearance_plane_air()
+
+        shell_solution = self.ODE_shell_plane_air()  # использует self.t_01_p_a
 
         x_fuel_m, t_fuel = self.solution_to_numpy(
             fuel_solution, self.x, (0, self.d / 2), num_points
         )
-
         x_clearance_m, t_clearance = self.solution_to_numpy(
             clearance_solution, self.x, (self.d / 2, self.d / 2 + self.c), num_points
         )
-
         x_shell_m, t_shell = self.solution_to_numpy(
             shell_solution, self.x, (self.d / 2 + self.c, self.d / 2 + self.c + self.delta), num_points
         )
@@ -341,25 +322,23 @@ class Simulation(Math_Model):
             'x, мм': np.round(x_total_mm, 4),
             'Температура, °C': np.round(t_total, 2)
         })
-
         self.results['plane_air'] = df
         return df
 
-    def get_plane_helium_gap_table(self, num_points=100):
-        """Таблица для пластины с гелиевым зазором (случай в)"""
+    # ==================== ПЛАСТИНА - ГЕЛИЕВЫЙ ЗАЗОР ====================
 
+    def get_plane_helium_gap_table(self, num_points=100):
         fuel_solution = self.ODE_fuel_rod_plane()
-        clearance_solution = self.ODE_clearance_plane_helium()
-        shell_solution = self.ODE_shell_plane_gas()
+        clearance_solution, t_01 = self.ODE_clearance_plane_helium()
+
+        shell_solution = self.ODE_shell_plane_he()  # использует self.t_01_p_h
 
         x_fuel_m, t_fuel = self.solution_to_numpy(
             fuel_solution, self.x, (0, self.d / 2), num_points
         )
-
         x_clearance_m, t_clearance = self.solution_to_numpy(
             clearance_solution, self.x, (self.d / 2, self.d / 2 + self.c), num_points
         )
-
         x_shell_m, t_shell = self.solution_to_numpy(
             shell_solution, self.x, (self.d / 2 + self.c, self.d / 2 + self.c + self.delta), num_points
         )
@@ -372,25 +351,23 @@ class Simulation(Math_Model):
             'x, мм': np.round(x_total_mm, 4),
             'Температура, °C': np.round(t_total, 2)
         })
-
         self.results['plane_helium'] = df
         return df
 
-    def get_cylinder_air_gap_table(self, num_points=100):
-        """Таблица для цилиндра с воздушным зазором (случай б)"""
+    # ==================== ЦИЛИНДР - ВОЗДУШНЫЙ ЗАЗОР ====================
 
+    def get_cylinder_air_gap_table(self, num_points=100):
         fuel_solution = self.ODE_fuel_rod_cylinder()
-        clearance_solution = self.ODE_clearance_cylinder_air()
-        shell_solution = self.ODE_shell_cylinder_gas()
+        clearance_solution, t_01 = self.ODE_clearance_cylinder_air()
+
+        shell_solution = self.ODE_shell_cylinder_air()  # использует self.t_01_c_a
 
         r_fuel_m, t_fuel = self.solution_to_numpy(
             fuel_solution, self.r, (0, self.d / 2), num_points
         )
-
         r_clearance_m, t_clearance = self.solution_to_numpy(
             clearance_solution, self.r, (self.d / 2, self.d / 2 + self.c), num_points
         )
-
         r_shell_m, t_shell = self.solution_to_numpy(
             shell_solution, self.r, (self.d / 2 + self.c, self.d / 2 + self.c + self.delta), num_points
         )
@@ -403,25 +380,23 @@ class Simulation(Math_Model):
             'r, мм': np.round(r_total_mm, 4),
             'Температура, °C': np.round(t_total, 2)
         })
-
         self.results['cylinder_air'] = df
         return df
 
-    def get_cylinder_helium_gap_table(self, num_points=100):
-        """Таблица для цилиндра с гелиевым зазором (случай в)"""
+    # ==================== ЦИЛИНДР - ГЕЛИЕВЫЙ ЗАЗОР ====================
 
+    def get_cylinder_helium_gap_table(self, num_points=100):
         fuel_solution = self.ODE_fuel_rod_cylinder()
-        clearance_solution = self.ODE_clearance_cylinder_helium()
-        shell_solution = self.ODE_shell_cylinder_gas()
+        clearance_solution, t_01 = self.ODE_clearance_cylinder_helium()
+
+        shell_solution = self.ODE_shell_cylinder_he()  # использует self.t_01_c_h
 
         r_fuel_m, t_fuel = self.solution_to_numpy(
             fuel_solution, self.r, (0, self.d / 2), num_points
         )
-
         r_clearance_m, t_clearance = self.solution_to_numpy(
             clearance_solution, self.r, (self.d / 2, self.d / 2 + self.c), num_points
         )
-
         r_shell_m, t_shell = self.solution_to_numpy(
             shell_solution, self.r, (self.d / 2 + self.c, self.d / 2 + self.c + self.delta), num_points
         )
@@ -434,71 +409,58 @@ class Simulation(Math_Model):
             'r, мм': np.round(r_total_mm, 4),
             'Температура, °C': np.round(t_total, 2)
         })
-
         self.results['cylinder_helium'] = df
         return df
 
-    def print_table(self, df, title="Распределение температуры", num_rows=None):
-        """Вывод таблицы в консоль"""
+    # ==================== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ====================
 
+    def print_table(self, df, title="Распределение температуры", num_rows=None):
         print("\n" + "=" * 70)
         print(title)
         print("=" * 70)
-
         if num_rows:
             print(df.head(num_rows).to_string(index=False))
             print(f"\n... и еще {len(df) - num_rows} строк")
         else:
             print(df.to_string(index=False))
-
         print("\n" + "=" * 70)
         print(f"Всего точек: {len(df)}")
         print(f"Диапазон температур: {df['Температура, °C'].min():.1f} ... {df['Температура, °C'].max():.1f} °C")
 
     def save_table_to_csv(self, df, filename):
-        """Сохранение таблицы в CSV файл"""
-
         df.to_csv(filename, index=False, encoding='utf-8-sig')
         print(f"✓ Таблица сохранена в файл: {filename}")
 
     def run_all_tables(self, num_points=50, save_csv=True):
-        """Запуск всех расчетов и вывод таблиц"""
-
         print("\n" + "=" * 80)
         print("ЗАПУСК РАСЧЕТОВ ТЕМПЕРАТУРНЫХ ПОЛЕЙ")
         print("=" * 80)
 
-        # Пластина, идеальный контакт
         df1 = self.get_plane_ideal_contact_table(num_points)
         self.print_table(df1, "ПЛАСТИНА - ИДЕАЛЬНЫЙ КОНТАКТ (случай а)")
         if save_csv:
             self.save_table_to_csv(df1, "plane_ideal_contact.csv")
 
-        # Цилиндр, идеальный контакт
         df2 = self.get_cylinder_ideal_contact_table(num_points)
         self.print_table(df2, "ЦИЛИНДР - ИДЕАЛЬНЫЙ КОНТАКТ (случай а)")
         if save_csv:
             self.save_table_to_csv(df2, "cylinder_ideal_contact.csv")
 
-        # Пластина, воздушный зазор
         df3 = self.get_plane_air_gap_table(num_points)
         self.print_table(df3, "ПЛАСТИНА - ВОЗДУШНЫЙ ЗАЗОР (случай б)")
         if save_csv:
             self.save_table_to_csv(df3, "plane_air_gap.csv")
 
-        # Цилиндр, воздушный зазор
         df4 = self.get_cylinder_air_gap_table(num_points)
         self.print_table(df4, "ЦИЛИНДР - ВОЗДУШНЫЙ ЗАЗОР (случай б)")
         if save_csv:
             self.save_table_to_csv(df4, "cylinder_air_gap.csv")
 
-        # Пластина, гелиевый зазор
         df5 = self.get_plane_helium_gap_table(num_points)
         self.print_table(df5, "ПЛАСТИНА - ГЕЛИЕВЫЙ ЗАЗОР (случай в)")
         if save_csv:
             self.save_table_to_csv(df5, "plane_helium_gap.csv")
 
-        # Цилиндр, гелиевый зазор
         df6 = self.get_cylinder_helium_gap_table(num_points)
         self.print_table(df6, "ЦИЛИНДР - ГЕЛИЕВЫЙ ЗАЗОР (случай в)")
         if save_csv:
@@ -507,7 +469,6 @@ class Simulation(Math_Model):
         print("\n" + "=" * 80)
         print("✅ ВСЕ РАСЧЕТЫ ЗАВЕРШЕНЫ")
         print("=" * 80)
-
         return self.results
 
 
