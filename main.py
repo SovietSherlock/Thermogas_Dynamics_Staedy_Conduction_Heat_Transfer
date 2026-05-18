@@ -220,6 +220,51 @@ class  Math_Model(Init_Parameters):
         }
         return sp.dsolve(eq, ics=ics)
 
+    def volumetric_heat_release_plane(self):
+        # функция описания мат модели объемной плотности тепловыделения для пластинчатой модели системы с условием установки а):
+        numerator = 8*self.lambda_f*(self.t_m - self.t_02_r)
+        denominator = self.d**2
+        q_e = numerator/denominator
+        return q_e
+
+    def volumetric_heat_release_cylinder(self):
+        # функция описания мат модели объемной плотности тепловыделения для цилиндрической модели системы с условием установки а):
+        numerator = 16*self.lambda_f*(self.t_m - self.t_02_r)
+        denominator = self.d**2
+        q_e = numerator / denominator
+        return q_e
+
+    def volumetric_heat_release_plane_air(self):
+        # функция описания мат модели объемной плотности тепловыделения для пластинчатой модели системы с условием установки б):
+        numerator = self.t_m - self.t_02_r
+        denominator = (self.d**2/(8*self.lambda_f)) + (self.d*self.c/(2*self.lambda_a)) + (self.d*self.delta/(2*self.lambda_s))
+        q_e = numerator / denominator
+        return q_e
+
+    def volumetric_heat_release_cylinder_air(self):
+        # функция описания мат модели объемной плотности тепловыделения для цилиндрической модели системы с условием установки б):
+        numerator = self.t_m - self.t_02_r
+        denominator = (self.d ** 2 / (16 * self.lambda_f)
+                       + (self.d ** 2 / (8 * self.lambda_a)) * math.log(1 + 2 * self.c / self.d)
+                       + (self.d ** 2 / (8 * self.lambda_s)) * math.log(1 + 2 * self.delta / (self.d + 2 * self.c)))
+        q_e = numerator / denominator
+        return q_e
+
+    def volumetric_heat_release_plane_helium(self):
+        # функция описания мат модели объемной плотности тепловыделения для пластинчатой модели системы с условием установки в):
+        numerator = self.t_m - self.t_02_r
+        denominator = (self.d**2/(8*self.lambda_f)) + (self.d*self.c/(2*self.lambda_he)) + (self.d*self.delta/(2*self.lambda_s))
+        q_e = numerator / denominator
+        return q_e
+
+    def volumetric_heat_release_cylinder_helium(self):
+        # функция описания мат модели объемной плотности тепловыделения для цилиндрической модели системы с условием установки в):
+        numerator = self.t_m - self.t_02_r
+        denominator = (self.d ** 2 / (16 * self.lambda_f)
+                       + (self.d ** 2 / (8 * self.lambda_he)) * math.log(1 + 2 * self.c / self.d)
+                       + (self.d ** 2 / (8 * self.lambda_s)) * math.log(1 + 2 * self.delta / (self.d + 2 * self.c)))
+        q_e = numerator / denominator
+        return q_e
 
 class Simulation(Math_Model):
     # Класс аналитического решения дифференциальных уравнений при заданных начальных условиях
@@ -493,111 +538,33 @@ class Simulation(Math_Model):
 
         # ==================== РАСЧЕТ КРИТИЧЕСКОЙ МОЩНОСТИ q_e ====================
 
-    def calculate_qe_from_models(self):
-        """
-        Расчет критической мощности q_e на основе аналитических формул из Math_Model
-        """
-        # Сохраняем текущее значение q_v
-        original_q_v = self.q_v
-
-        # Временно устанавливаем символьное q_v для расчетов
-        q_v_sym = sp.Symbol('q_v', positive=True)
-        self.q_v = q_v_sym
-
-        results = {}
-
-        try:
-            # ========== ПЛАСТИНА ==========
-
-            # 1. Пластина, идеальный контакт
-            fuel_sol = self.ODE_fuel_rod_plane()
-            t_center = fuel_sol.rhs.subs(self.x, 0)
-            # Приравниваем к t_m и решаем относительно q_v
-            eq_ideal = sp.Eq(t_center, self.t_m)
-            qe_ideal = sp.solve(eq_ideal, q_v_sym)
-            results['plane_ideal'] = float(qe_ideal[0]) if qe_ideal else None
-
-            # 2. Пластина, воздушный зазор
-            # Получаем выражение для температуры после зазора
-            _, t_01 = self.ODE_clearance_plane_air()
-            # Перепад в оболочке
-            q_flow = q_v_sym * (self.d / 2)
-            delta_shell = q_flow * self.delta / self.lambda_s
-            t_surface = t_01 - delta_shell
-            # Температура в центре
-            t_center_air = fuel_sol.rhs.subs(self.x, 0) + (self.t_02_r - t_surface)
-            eq_air = sp.Eq(t_center_air, self.t_m)
-            qe_air = sp.solve(eq_air, q_v_sym)
-            results['plane_air'] = float(qe_air[0]) if qe_air else None
-
-            # 3. Пластина, гелиевый зазор
-            _, t_01_he = self.ODE_clearance_plane_helium()
-            delta_shell_he = q_flow * self.delta / self.lambda_s
-            t_surface_he = t_01_he - delta_shell_he
-            t_center_he = fuel_sol.rhs.subs(self.x, 0) + (self.t_02_r - t_surface_he)
-            eq_he = sp.Eq(t_center_he, self.t_m)
-            qe_he = sp.solve(eq_he, q_v_sym)
-            results['plane_helium'] = float(qe_he[0]) if qe_he else None
-
-            # ========== ЦИЛИНДР ==========
-
-            # 4. Цилиндр, идеальный контакт
-            fuel_sol_cyl = self.ODE_fuel_rod_cylinder()
-            t_center_cyl = fuel_sol_cyl.rhs.subs(self.r, 0)
-            eq_cyl_ideal = sp.Eq(t_center_cyl, self.t_m)
-            qe_cyl_ideal = sp.solve(eq_cyl_ideal, q_v_sym)
-            results['cylinder_ideal'] = float(qe_cyl_ideal[0]) if qe_cyl_ideal else None
-
-            # 5. Цилиндр, воздушный зазор
-            _, t_01_cyl_air = self.ODE_clearance_cylinder_air()
-            t_center_cyl_air = fuel_sol_cyl.rhs.subs(self.r, 0) + (self.t_02_r - t_01_cyl_air)
-            eq_cyl_air = sp.Eq(t_center_cyl_air, self.t_m)
-            qe_cyl_air = sp.solve(eq_cyl_air, q_v_sym)
-            results['cylinder_air'] = float(qe_cyl_air[0]) if qe_cyl_air else None
-
-            # 6. Цилиндр, гелиевый зазор
-            _, t_01_cyl_he = self.ODE_clearance_cylinder_helium()
-            t_center_cyl_he = fuel_sol_cyl.rhs.subs(self.r, 0) + (self.t_02_r - t_01_cyl_he)
-            eq_cyl_he = sp.Eq(t_center_cyl_he, self.t_m)
-            qe_cyl_he = sp.solve(eq_cyl_he, q_v_sym)
-            results['cylinder_helium'] = float(qe_cyl_he[0]) if qe_cyl_he else None
-
-        finally:
-            # Восстанавливаем исходное значение q_v
-            self.q_v = original_q_v
-
-        return results
-
     def print_qe_results(self):
-        """Вывод результатов расчета критической мощности"""
-        print("\n" + "=" * 80)
-        print("РАСЧЕТ КРИТИЧЕСКОЙ МОЩНОСТИ ТЕПЛОВЫДЕЛЕНИЯ q_e")
-        print("=" * 80)
+        # Вывод результатов расчета критической мощности
+        print("\n" + "=" * 70)
+        print("РЕЗУЛЬТАТЫ РАСЧЕТА КРИТИЧЕСКОЙ МОЩНОСТИ q_e")
+        print("=" * 70)
         print(f"Исходные условия:")
         print(f"  Максимальная допустимая температура сердечника t_m = {self.t_m} °C")
         print(f"  Температура наружной поверхности оболочки t_02_r = {self.t_02_r} °C")
         print(f"  Разница температур: Δt_max = {self.t_m - self.t_02_r} °C")
 
-        qe_results = self.calculate_qe_from_models()
-
         print("\n" + "-" * 50)
         print("РЕЗУЛЬТАТЫ РАСЧЕТА q_e:")
         print("-" * 50)
 
-        names = {
-            'plane_ideal': 'Пластина, идеальный контакт',
-            'plane_air': 'Пластина, воздушный зазор',
-            'plane_helium': 'Пластина, гелиевый зазор',
-            'cylinder_ideal': 'Цилиндр, идеальный контакт',
-            'cylinder_air': 'Цилиндр, воздушный зазор',
-            'cylinder_helium': 'Цилиндр, гелиевый зазор'
+        # Расчет q_e для всех случаев
+        qe_values = {
+            'Пластина, идеальный контакт': self.volumetric_heat_release_plane(),
+            'Пластина, воздушный зазор': self.volumetric_heat_release_plane_air(),
+            'Пластина, гелиевый зазор': self.volumetric_heat_release_plane_helium(),
+            'Цилиндр, идеальный контакт': self.volumetric_heat_release_cylinder(),
+            'Цилиндр, воздушный зазор': self.volumetric_heat_release_cylinder_air(),
+            'Цилиндр, гелиевый зазор': self.volumetric_heat_release_cylinder_helium()
         }
 
-        for key, name in names.items():
-            qe = qe_results.get(key)
-            if qe:
-                print(f"\n{name}:")
-                print(f"  q_e = {qe:.2e} Вт/м³ = {qe / 1e6:.2f} МВт/м³")
+        for name, qe in qe_values.items():
+            print(f"\n{name}:")
+            print(f"  q_e = {qe:.2e} Вт/м³ = {qe / 1e6:.2f} МВт/м³")
 
         # Сравнение с текущим q_v
         print("\n" + "-" * 50)
@@ -605,39 +572,33 @@ class Simulation(Math_Model):
         print("-" * 50)
         print(f"Текущая мощность: q_v = {self.q_v / 1e6:.2f} МВт/м³")
 
-        for key, name in names.items():
-            qe = qe_results.get(key)
-            if qe:
-                margin = qe / self.q_v
-                if margin > 1.2:
-                    status = "✅ БЕЗОПАСНО"
-                elif margin > 1.0:
-                    status = "⚠️ ПРЕДЕЛЬНО"
-                else:
-                    status = "❌ ОПАСНО"
-                print(f"  {name:35}: запас = {margin:.3f} → {status}")
+        for name, qe in qe_values.items():
+            margin = qe / self.q_v
+            if margin > 1.2:
+                status = "✅ БЕЗОПАСНО"
+            elif margin > 1.0:
+                status = "⚠️ ПРЕДЕЛЬНО"
+            else:
+                status = "❌ ОПАСНО"
+            print(f"  {name:35}: запас = {margin:.3f} → {status}")
 
-        return qe_results
+        return qe_values
 
     def get_qe_dataframe(self):
-        """Возвращает DataFrame с результатами расчета q_e"""
-        qe_results = self.calculate_qe_from_models()
-
+        # Возвращает DataFrame с результатами расчета q_e
         data = []
-        for key, qe in qe_results.items():
-            if qe:
-                if 'plane' in key:
-                    geometry = 'Пластина'
-                else:
-                    geometry = 'Цилиндр'
 
-                if 'ideal' in key:
-                    contact = 'Идеальный контакт'
-                elif 'air' in key:
-                    contact = 'Воздушный зазор'
-                else:
-                    contact = 'Гелиевый зазор'
+        cases = [
+            ('Пластина', 'Идеальный контакт', self.volumetric_heat_release_plane()),
+            ('Пластина', 'Воздушный зазор', self.volumetric_heat_release_plane_air()),
+            ('Пластина', 'Гелиевый зазор', self.volumetric_heat_release_plane_helium()),
+            ('Цилиндр', 'Идеальный контакт', self.volumetric_heat_release_cylinder()),
+            ('Цилиндр', 'Воздушный зазор', self.volumetric_heat_release_cylinder_air()),
+            ('Цилиндр', 'Гелиевый зазор', self.volumetric_heat_release_cylinder_helium())
+        ]
 
+        for geometry, contact, qe in cases:
+            if qe is not None:
                 data.append({
                     'Геометрия': geometry,
                     'Тип контакта': contact,
@@ -650,26 +611,912 @@ class Simulation(Math_Model):
         return df
 
 
-sim = Simulation()
+class Plotter(Simulation):
+    # Класс вывода графиков распределения температуры
 
-# 1. Запуск расчетов температурных полей
-results = sim.run_all_tables(num_points=20, save_csv=True)
+    def __init__(self):
+        super().__init__()
+        # Настройка параметров шрифта для matplotlib
+        self.setup_plot_style()
 
-# 2. Расчет критической мощности q_e
-print("\n" + "=" * 80)
-print("ЗАПУСК РАСЧЕТА КРИТИЧЕСКОЙ МОЩНОСТИ")
-print("=" * 80)
+        self.colors = {
+            'ideal': 'steelblue',
+            'air': 'firebrick',
+            'helium': 'forestgreen'
+        }
 
-# Вывод результатов
-qe_results = sim.print_qe_results()
+        self.labels = {
+            'ideal': 'Идеальный контакт (а)',
+            'air': 'Воздушный зазор (б)',
+            'helium': 'Гелиевый зазор (в)'
+        }
 
-# Получение DataFrame
-df_qe = sim.get_qe_dataframe()
-print("\n" + "=" * 80)
-print("ТАБЛИЦА КРИТИЧЕСКИХ МОЩНОСТЕЙ")
-print("=" * 80)
-print(df_qe.to_string(index=False))
+    def setup_plot_style(self):
+        """Настройка стилей оформления графика"""
+        plt.rcParams['font.family'] = 'Times New Roman'
+        plt.rcParams['font.size'] = 14
+        plt.rcParams['axes.linewidth'] = 2
+        plt.rcParams['lines.linewidth'] = 1
+        plt.rcParams['axes.titleweight'] = 'normal'
+        plt.rcParams['axes.labelweight'] = 'normal'
+        plt.rcParams['mathtext.fontset'] = 'stix'
+        plt.rcParams['mathtext.rm'] = 'Times New Roman'
+        plt.rcParams['mathtext.it'] = 'Times New Roman:italic'
+        plt.rcParams['mathtext.bf'] = 'Times New Roman:bold'
 
-# Сохранение в CSV
-df_qe.to_csv("critical_power.csv", index=False, encoding='utf-8-sig')
-print("\n✓ Таблица критических мощностей сохранена в 'critical_power.csv'")
+    def format_axes(self, ax, xlabel, ylabel, title, xlim=None, ylim=None):
+        """Форматирование осей графика"""
+        ax.set_xlabel(xlabel, fontsize=14, fontname='Times New Roman')
+        ax.set_ylabel(ylabel, fontsize=14, fontname='Times New Roman')
+        ax.set_title(title, fontsize=14, fontname='Times New Roman')
+        ax.tick_params(axis='both', labelsize=12, width=1.5)
+        ax.grid(True, linestyle='--', alpha=0.3, linewidth=0.8)
+
+        if xlim:
+            ax.set_xlim(xlim)
+        if ylim:
+            ax.set_ylim(ylim)
+
+        for spine in ax.spines.values():
+            spine.set_linewidth(2)
+
+    def get_label(self, label_type):
+        """Возвращает подпись с нужным шрифтом"""
+        labels = {
+            'x': 'x, мм',
+            'r': 'r, мм',
+            't': 't, °C',
+            't_center': 't_ц, °C',
+            't_surface': 't_пов, °C'
+        }
+        return labels.get(label_type, label_type)
+
+    def plot_plane_distributions(self, save_path=None, show=True):
+        """Построение графика распределения температуры в пластине"""
+        if 'plane_ideal' not in self.results:
+            print("Ошибка: сначала запустите расчеты (run_all_tables)")
+            return None
+
+        self.setup_plot_style()
+        fig, ax = plt.subplots(figsize=(20, 10))
+
+        conditions = [
+            ('plane_ideal', 'ideal'),
+            ('plane_air', 'air'),
+            ('plane_helium', 'helium')
+        ]
+
+        for result_key, condition in conditions:
+            if result_key in self.results:
+                df = self.results[result_key]
+                ax.plot(df['x, мм'], df['Температура, °C'],
+                        color=self.colors[condition],
+                        linewidth=1,
+                        label=self.labels[condition],
+                        alpha=0.9)
+
+        xlabel = self.get_label('x')
+        ylabel = self.get_label('t')
+        title = 'Распределение температуры в пластине'
+
+        self.format_axes(ax, xlabel, ylabel, title)
+
+        ax.annotate(f'$q_v = {self.q_v / 1e6:.0f}$ МВт/м$^3$',
+                    xy=(0.02, 0.95), xycoords='axes fraction',
+                    fontsize=12, fontname='Times New Roman')
+
+        ax.legend(loc='best', fontsize=12, frameon=True, fancybox=True)
+        plt.tight_layout()
+
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        if show:
+            plt.show()
+        return fig
+
+    def plot_cylinder_distributions(self, save_path=None, show=True):
+        """Построение графика распределения температуры в цилиндре"""
+        if 'cylinder_ideal' not in self.results:
+            print("Ошибка: сначала запустите расчеты (run_all_tables)")
+            return None
+
+        self.setup_plot_style()
+        fig, ax = plt.subplots(figsize=(20, 10))
+
+        conditions = [
+            ('cylinder_ideal', 'ideal'),
+            ('cylinder_air', 'air'),
+            ('cylinder_helium', 'helium')
+        ]
+
+        for result_key, condition in conditions:
+            if result_key in self.results:
+                df = self.results[result_key]
+                ax.plot(df['r, мм'], df['Температура, °C'],
+                        color=self.colors[condition],
+                        linewidth=1,
+                        label=self.labels[condition],
+                        alpha=0.9)
+
+        xlabel = self.get_label('r')
+        ylabel = self.get_label('t')
+        title = 'Распределение температуры в цилиндре'
+
+        self.format_axes(ax, xlabel, ylabel, title)
+
+        ax.annotate(f'$q_v = {self.q_v / 1e6:.0f}$ МВт/м$^3$',
+                    xy=(0.02, 0.95), xycoords='axes fraction',
+                    fontsize=12, fontname='Times New Roman')
+
+        ax.legend(loc='best', fontsize=12, frameon=True, fancybox=True)
+        plt.tight_layout()
+
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        if show:
+            plt.show()
+        return fig
+
+    def plot_comparison_plane_cylinder(self, condition='ideal', save_path=None, show=True):
+        """Сравнение распределения температуры в пластине и цилиндре"""
+        condition_map = {
+            'ideal': ('plane_ideal', 'cylinder_ideal'),
+            'air': ('plane_air', 'cylinder_air'),
+            'helium': ('plane_helium', 'cylinder_helium')
+        }
+
+        if condition not in condition_map:
+            print(f"Ошибка: неизвестное условие '{condition}'")
+            return None
+
+        plane_key, cylinder_key = condition_map[condition]
+
+        if plane_key not in self.results or cylinder_key not in self.results:
+            print("Ошибка: сначала запустите расчеты (run_all_tables)")
+            return None
+
+        self.setup_plot_style()
+        fig, ax = plt.subplots(figsize=(20, 10))
+
+        df_plane = self.results[plane_key]
+        ax.plot(df_plane['x, мм'], df_plane['Температура, °C'],
+                color=self.colors[condition],
+                linewidth=1,
+                label='Пластина',
+                alpha=0.9,
+                linestyle='-')
+
+        df_cylinder = self.results[cylinder_key]
+        ax.plot(df_cylinder['r, мм'], df_cylinder['Температура, °C'],
+                color=self.colors[condition],
+                linewidth=1,
+                label='Цилиндр',
+                alpha=0.9,
+                linestyle='--')
+
+        xlabel = 'x, r, мм'
+        ylabel = self.get_label('t')
+        title = f'Сравнение распределения температуры\nУсловие: {self.labels[condition]}'
+
+        self.format_axes(ax, xlabel, ylabel, title)
+
+        ax.annotate(f'$q_v = {self.q_v / 1e6:.0f}$ МВт/м$^3$',
+                    xy=(0.02, 0.95), xycoords='axes fraction',
+                    fontsize=12, fontname='Times New Roman')
+
+        ax.legend(loc='best', fontsize=12, frameon=True, fancybox=True)
+        plt.tight_layout()
+
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        if show:
+            plt.show()
+        return fig
+
+    def plot_all_conditions_comparison(self, save_path=None, show=True):
+        """Построение двух графиков (пластина и цилиндр) рядом"""
+        if 'plane_ideal' not in self.results:
+            print("Ошибка: сначала запустите расчеты (run_all_tables)")
+            return None
+
+        self.setup_plot_style()
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
+
+        conditions_plane = [
+            ('plane_ideal', 'ideal'),
+            ('plane_air', 'air'),
+            ('plane_helium', 'helium')
+        ]
+
+        for result_key, condition in conditions_plane:
+            if result_key in self.results:
+                df = self.results[result_key]
+                ax1.plot(df['x, мм'], df['Температура, °C'],
+                         color=self.colors[condition],
+                         linewidth=1,
+                         label=self.labels[condition],
+                         alpha=0.9)
+
+        conditions_cylinder = [
+            ('cylinder_ideal', 'ideal'),
+            ('cylinder_air', 'air'),
+            ('cylinder_helium', 'helium')
+        ]
+
+        for result_key, condition in conditions_cylinder:
+            if result_key in self.results:
+                df = self.results[result_key]
+                ax2.plot(df['r, мм'], df['Температура, °C'],
+                         color=self.colors[condition],
+                         linewidth=1,
+                         label=self.labels[condition],
+                         alpha=0.9)
+
+        ax1.set_xlabel('x, мм', fontsize=14, fontname='Times New Roman')
+        ax1.set_ylabel('t, °C', fontsize=14, fontname='Times New Roman')
+        ax1.set_title('Пластина', fontsize=14, fontname='Times New Roman')
+        ax1.tick_params(axis='both', labelsize=12)
+        ax1.grid(True, linestyle='--', alpha=0.3)
+
+        ax2.set_xlabel('r, мм', fontsize=14, fontname='Times New Roman')
+        ax2.set_ylabel('t, °C', fontsize=14, fontname='Times New Roman')
+        ax2.set_title('Цилиндр', fontsize=14, fontname='Times New Roman')
+        ax2.tick_params(axis='both', labelsize=12)
+        ax2.grid(True, linestyle='--', alpha=0.3)
+
+        fig.suptitle(f'Распределение температуры при $q_v = {self.q_v / 1e6:.0f}$ МВт/м$^3$',
+                     fontsize=14, fontname='Times New Roman')
+
+        ax1.legend(loc='best', fontsize=10, frameon=True, fancybox=True)
+        ax2.legend(loc='best', fontsize=10, frameon=True, fancybox=True)
+
+        plt.tight_layout()
+
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        if show:
+            plt.show()
+        return fig
+
+    def plot_with_temperature_limit(self, condition='ideal', save_path=None, show=True):
+        """Построение графика с отображением предела температуры плавления"""
+        condition_map = {
+            'ideal': 'plane_ideal',
+            'air': 'plane_air',
+            'helium': 'plane_helium'
+        }
+
+        if condition not in condition_map:
+            print(f"Ошибка: неизвестное условие '{condition}'")
+            return None
+
+        result_key = condition_map[condition]
+
+        if result_key not in self.results:
+            print("Ошибка: сначала запустите расчеты (run_all_tables)")
+            return None
+
+        self.setup_plot_style()
+        fig, ax = plt.subplots(figsize=(20, 10))
+
+        df = self.results[result_key]
+        ax.plot(df['x, мм'], df['Температура, °C'],
+                color=self.colors[condition],
+                linewidth=1,
+                label=self.labels[condition],
+                alpha=0.9)
+
+        # Линия предела температуры плавления
+        ax.axhline(y=self.t_m, color='red', linestyle='--',
+                   linewidth=1.5, alpha=0.7,
+                   label=f'Температура плавления: $t_m = {self.t_m}^\\circ$C')
+
+        xlabel = self.get_label('x')
+        ylabel = self.get_label('t')
+        title = 'Распределение температуры в пластине с ограничением по температуре плавления'
+
+        self.format_axes(ax, xlabel, ylabel, title)
+
+        max_temp = df['Температура, °C'].max()
+        if max_temp > self.t_m:
+            ax.fill_between(df['x, мм'], self.t_m, max_temp,
+                            alpha=0.3, color='red',
+                            label=f'Превышение предела: $t = {max_temp:.0f}^\\circ$C')
+
+        ax.annotate(f'$q_v = {self.q_v / 1e6:.0f}$ МВт/м$^3$',
+                    xy=(0.02, 0.95), xycoords='axes fraction',
+                    fontsize=12, fontname='Times New Roman')
+
+        ax.legend(loc='best', fontsize=11, frameon=True, fancybox=True)
+        plt.tight_layout()
+
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        if show:
+            plt.show()
+        return fig
+
+    def plot_qe_comparison(self, save_path=None, show=True):
+        """Построение столбчатой диаграммы сравнения критических мощностей"""
+        self.setup_plot_style()
+
+        qe_values = {
+            'Пластина\nидеальный': self.volumetric_heat_release_plane(),
+            'Пластина\nвоздух': self.volumetric_heat_release_plane_air(),
+            'Пластина\nгелий': self.volumetric_heat_release_plane_helium(),
+            'Цилиндр\nидеальный': self.volumetric_heat_release_cylinder(),
+            'Цилиндр\nвоздух': self.volumetric_heat_release_cylinder_air(),
+            'Цилиндр\nгелий': self.volumetric_heat_release_cylinder_helium()
+        }
+
+        categories = list(qe_values.keys())
+        values = [qe_values[cat] / 1e6 for cat in categories]
+
+        bar_colors = []
+        for cat in categories:
+            if 'идеальный' in cat:
+                bar_colors.append(self.colors['ideal'])
+            elif 'воздух' in cat:
+                bar_colors.append(self.colors['air'])
+            else:
+                bar_colors.append(self.colors['helium'])
+
+        fig, ax = plt.subplots(figsize=(20, 10))
+
+        bars = ax.bar(categories, values, color=bar_colors, alpha=0.7, edgecolor='black', linewidth=1)
+
+        ax.axhline(y=self.q_v / 1e6, color='red', linestyle='--',
+                   linewidth=2, alpha=0.8,
+                   label=f'Текущая мощность: $q_v = {self.q_v / 1e6:.0f}$ МВт/м$^3$')
+
+        for bar, value in zip(bars, values):
+            height = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width() / 2., height + 5,
+                    f'{value:.0f}',
+                    ha='center', va='bottom', fontsize=10, fontname='Times New Roman')
+
+        ax.set_ylabel('Критическая мощность $q_e$, МВт/м$^3$', fontsize=14, fontname='Times New Roman')
+        ax.set_title('Сравнение критических мощностей для различных условий', fontsize=14, fontname='Times New Roman')
+        ax.tick_params(axis='x', labelsize=11)
+        ax.tick_params(axis='y', labelsize=12)
+        ax.grid(True, linestyle='--', alpha=0.3, axis='y')
+
+        # Поворачиваем подписи на оси X для лучшей читаемости
+        for label in ax.get_xticklabels():
+            label.set_fontname('Times New Roman')
+            label.set_fontsize(11)
+
+        ax.legend(loc='upper right', fontsize=11, frameon=True, fancybox=True)
+        plt.tight_layout()
+
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        if show:
+            plt.show()
+        return fig
+
+    def plot_all(self, save_dir=None, show=True):
+        """Построение всех графиков"""
+        print("\n" + "=" * 80)
+        print("ПОСТРОЕНИЕ ГРАФИКОВ")
+        print("=" * 80)
+
+        # Создаем папку для графиков, если указана
+        if save_dir:
+            import os
+            os.makedirs(save_dir, exist_ok=True)
+
+        print("\n1. Построение графика для пластины...")
+        self.plot_plane_distributions(
+            save_path=f"{save_dir}/plane_distributions.png" if save_dir else None,
+            show=show
+        )
+
+        print("2. Построение графика для цилиндра...")
+        self.plot_cylinder_distributions(
+            save_path=f"{save_dir}/cylinder_distributions.png" if save_dir else None,
+            show=show
+        )
+
+        print("3. Построение графика сравнения пластина/цилиндр (идеальный контакт)...")
+        self.plot_comparison_plane_cylinder(
+            condition='ideal',
+            save_path=f"{save_dir}/comparison_ideal.png" if save_dir else None,
+            show=show
+        )
+
+        print("4. Построение графика сравнения пластина/цилиндр (воздушный зазор)...")
+        self.plot_comparison_plane_cylinder(
+            condition='air',
+            save_path=f"{save_dir}/comparison_air.png" if save_dir else None,
+            show=show
+        )
+
+        print("5. Построение графика сравнения пластина/цилиндр (гелиевый зазор)...")
+        self.plot_comparison_plane_cylinder(
+            condition='helium',
+            save_path=f"{save_dir}/comparison_helium.png" if save_dir else None,
+            show=show
+        )
+
+        print("6. Построение совмещенных графиков...")
+        self.plot_all_conditions_comparison(
+            save_path=f"{save_dir}/all_conditions_comparison.png" if save_dir else None,
+            show=show
+        )
+
+        print("7. Построение графика с температурой плавления...")
+        self.plot_with_temperature_limit(
+            condition='ideal',
+            save_path=f"{save_dir}/temperature_limit.png" if save_dir else None,
+            show=show
+        )
+
+        print("8. Построение диаграммы критических мощностей...")
+        self.plot_qe_comparison(
+            save_path=f"{save_dir}/qe_comparison.png" if save_dir else None,
+            show=show
+        )
+
+    def plot_gap_detail_plane(self, condition='air', save_path=None, show=True):
+        """
+        Детальный график распределения температуры в области зазора для ПЛАСТИНЫ
+        Увеличенный фрагмент в границах:
+        от self.d/2 - 0.0001 м до self.d/2 + self.c + 0.0001 м
+        Шаг сетки по координате 0.01 мм
+
+        Parameters:
+        -----------
+        condition : str
+            'air' или 'helium' - какой зазор показать
+        save_path : str, optional
+            Путь для сохранения графика
+        show : bool
+            Показывать график
+        """
+        if condition == 'air':
+            result_key = 'plane_air'
+            gap_color = self.colors['air']
+            line_style = '-'
+        elif condition == 'helium':
+            result_key = 'plane_helium'
+            gap_color = self.colors['helium']
+            line_style = '-'
+        else:
+            print("Ошибка: condition должен быть 'air' или 'helium'")
+            return None
+
+        if result_key not in self.results:
+            print("Ошибка: сначала запустите расчеты (run_all_tables)")
+            return None
+
+        self.setup_plot_style()
+        fig, ax = plt.subplots(figsize=(20, 10))
+
+        # Границы области просмотра в метрах
+        x_start_m = self.d / 2 - 0.0001  # на 0.1 мм левее границы твэла
+        x_end_m = self.d / 2 + self.c + 0.0001  # на 0.1 мм правее границы зазора
+
+        # Переводим в мм для отображения
+        x_start_mm = x_start_m * 1000
+        x_end_mm = x_end_m * 1000
+
+        # Создаем массив координат с шагом 0.01 мм (1e-5 м)
+        step_m = 1e-5  # 0.01 мм
+        x_detailed_m = np.arange(x_start_m, x_end_m + step_m, step_m)
+        x_detailed_mm = x_detailed_m * 1000
+
+        # Получаем аналитическое решение для твэла и оболочки
+        fuel_solution = self.ODE_fuel_rod_plane()
+        clearance_solution, t_01 = self.ODE_clearance_plane_air() if condition == 'air' else self.ODE_clearance_plane_helium()
+        shell_solution = self.ODE_shell_plane_air() if condition == 'air' else self.ODE_shell_plane_he()
+
+        # Вычисляем температуры в детальных точках
+        t_detailed = np.zeros_like(x_detailed_m)
+
+        for i, x in enumerate(x_detailed_m):
+            if x <= self.d / 2:
+                # Твэл
+                t_func = sp.lambdify(self.x, fuel_solution.rhs, 'numpy')
+                t_detailed[i] = t_func(x)
+            elif x <= self.d / 2 + self.c:
+                # Зазор
+                t_func = sp.lambdify(self.x, clearance_solution.rhs, 'numpy')
+                t_detailed[i] = t_func(x)
+            else:
+                # Оболочка
+                t_func = sp.lambdify(self.x, shell_solution.rhs, 'numpy')
+                t_detailed[i] = t_func(x)
+
+        # Основной график
+        ax.plot(x_detailed_mm, t_detailed,
+                color=gap_color,
+                linewidth=2,
+                label=self.labels[condition],
+                alpha=0.9)
+
+        # Вертикальные линии границ
+        x_fuel_end_mm = self.d / 2 * 1000
+        x_gap_end_mm = (self.d / 2 + self.c) * 1000
+
+        ax.axvline(x=x_fuel_end_mm, color='black', linestyle='--', linewidth=1.5, alpha=0.8)
+        ax.axvline(x=x_gap_end_mm, color='black', linestyle='--', linewidth=1.5, alpha=0.8)
+
+        # Подсветка области зазора
+        ax.axvspan(x_fuel_end_mm, x_gap_end_mm, alpha=0.25, color=gap_color)
+
+        # Точки на границах с температурами
+        idx_fuel_end = np.argmin(np.abs(x_detailed_mm - x_fuel_end_mm))
+        idx_gap_end = np.argmin(np.abs(x_detailed_mm - x_gap_end_mm))
+
+        t_fuel_end = t_detailed[idx_fuel_end]
+        t_gap_end = t_detailed[idx_gap_end]
+
+        ax.plot(x_fuel_end_mm, t_fuel_end, 'ro', markersize=8, zorder=5)
+        ax.plot(x_gap_end_mm, t_gap_end, 'ro', markersize=8, zorder=5)
+
+        # Аннотации температур
+        ax.annotate(f'{t_fuel_end:.1f}°C',
+                    xy=(x_fuel_end_mm, t_fuel_end),
+                    xytext=(x_fuel_end_mm + 0.03, t_fuel_end + 15),
+                    fontsize=10, fontname='Times New Roman',
+                    arrowprops=dict(arrowstyle='->', color='darkred', lw=1.2))
+
+        ax.annotate(f'{t_gap_end:.1f}°C',
+                    xy=(x_gap_end_mm, t_gap_end),
+                    xytext=(x_gap_end_mm + 0.03, t_gap_end - 25),
+                    fontsize=10, fontname='Times New Roman',
+                    arrowprops=dict(arrowstyle='->', color='darkred', lw=1.2))
+
+        # Перепад в зазоре
+        delta_T = t_fuel_end - t_gap_end
+        ax.annotate(f'ΔT = {delta_T:.1f}°C',
+                    xy=((x_fuel_end_mm + x_gap_end_mm) / 2, (t_fuel_end + t_gap_end) / 2),
+                    ha='center', fontsize=11, fontname='Times New Roman', fontweight='bold',
+                    bbox=dict(boxstyle='round', facecolor='yellow', alpha=0.7, edgecolor='black'))
+
+        # Настройка осей
+        ax.set_xlim(x_start_mm, x_end_mm)
+        ax.set_xlabel('x, мм', fontsize=14, fontname='Times New Roman')
+        ax.set_ylabel('t, °C', fontsize=14, fontname='Times New Roman')
+        ax.set_title(f'Детальное распределение температуры в области зазора (Пластина)\n{self.labels[condition]}',
+                     fontsize=14, fontname='Times New Roman')
+        ax.tick_params(axis='both', labelsize=12)
+        ax.grid(True, linestyle='--', alpha=0.3)
+
+        # Информация о зазоре
+        info_text = f'Толщина зазора: {self.c * 1000:.3f} мм\nШаг сетки: 0.01 мм'
+        ax.text(0.98, 0.02, info_text, transform=ax.transAxes, ha='right', va='bottom',
+                fontsize=11, fontname='Times New Roman',
+                bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
+
+        ax.legend(loc='lower left', fontsize=12, frameon=True, fancybox=True)
+        plt.tight_layout()
+
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        if show:
+            plt.show()
+        return fig
+
+    def plot_gap_detail_plane_all(self, save_path=None, show=True):
+        """
+        Детальный график распределения температуры в области зазора для ПЛАСТИНЫ
+        для всех трех условий установки (а, б, в) на одном графике
+
+        Границы: от self.d/2 - 0.00002 м до self.d/2 + self.c + 0.00002 м
+        Шаг сетки по координате: 0.005 мм
+        """
+        self.setup_plot_style()
+        fig, ax = plt.subplots(figsize=(20, 10))
+
+        # Границы области просмотра в метрах
+        x_start_m = self.d / 2 - 0.00002  # на 0.02 мм левее границы твэла
+        x_end_m = self.d / 2 + self.c + 0.00002  # на 0.02 мм правее границы зазора
+
+        # Переводим в мм для отображения
+        x_start_mm = x_start_m * 1000
+        x_end_mm = x_end_m * 1000
+
+        # Создаем массив координат с шагом 0.005 мм (5e-6 м)
+        step_m = 5e-6  # 0.005 мм
+        x_detailed_m = np.arange(x_start_m, x_end_m + step_m, step_m)
+        x_detailed_mm = x_detailed_m * 1000
+
+        # Условия для построения
+        conditions = [
+            ('plane_ideal', 'ideal', 'Идеальный контакт (а)'),
+            ('plane_air', 'air', 'Воздушный зазор (б)'),
+            ('plane_helium', 'helium', 'Гелиевый зазор (в)')
+        ]
+
+        for result_key, color_key, label in conditions:
+            if result_key not in self.results:
+                continue
+
+            # Получаем аналитические решения
+            fuel_solution = self.ODE_fuel_rod_plane()
+
+            if result_key == 'plane_ideal':
+                clearance_solution = None
+                shell_solution = self.ODE_shell_plane()
+            elif result_key == 'plane_air':
+                clearance_solution, _ = self.ODE_clearance_plane_air()
+                shell_solution = self.ODE_shell_plane_air()
+            else:  # plane_helium
+                clearance_solution, _ = self.ODE_clearance_plane_helium()
+                shell_solution = self.ODE_shell_plane_he()
+
+            # Вычисляем температуры в детальных точках
+            t_detailed = np.zeros_like(x_detailed_m)
+
+            for i, x in enumerate(x_detailed_m):
+                if x <= self.d / 2:
+                    # Твэл
+                    t_func = sp.lambdify(self.x, fuel_solution.rhs, 'numpy')
+                    t_detailed[i] = t_func(x)
+                elif x <= self.d / 2 + self.c:
+                    # Зазор (только для случаев с зазором)
+                    if clearance_solution is not None:
+                        t_func = sp.lambdify(self.x, clearance_solution.rhs, 'numpy')
+                        t_detailed[i] = t_func(x)
+                    else:
+                        # Для идеального контакта продолжаем твэл
+                        t_func = sp.lambdify(self.x, fuel_solution.rhs, 'numpy')
+                        t_detailed[i] = t_func(x)
+                else:
+                    # Оболочка
+                    t_func = sp.lambdify(self.x, shell_solution.rhs, 'numpy')
+                    t_detailed[i] = t_func(x)
+
+            # Построение графика
+            ax.plot(x_detailed_mm, t_detailed,
+                    color=self.colors[color_key],
+                    linewidth=2,
+                    label=label,
+                    alpha=0.9)
+
+        # Настройка осей
+        ax.set_xlim(x_start_mm, x_end_mm)
+        ax.set_xlabel('x, мм', fontsize=14, fontname='Times New Roman')
+        ax.set_ylabel('t, °C', fontsize=14, fontname='Times New Roman')
+        ax.set_title('Детальное распределение температуры в области зазора (Пластина)',
+                     fontsize=14, fontname='Times New Roman')
+        ax.tick_params(axis='both', labelsize=12)
+        ax.grid(True, linestyle='--', alpha=0.3)
+
+        # Информация о параметрах
+        info_text = f'Толщина зазора: {self.c * 1000:.3f} мм\nШаг сетки: 0.005 мм'
+        ax.text(0.98, 0.02, info_text, transform=ax.transAxes, ha='right', va='bottom',
+                fontsize=11, fontname='Times New Roman',
+                bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
+
+        ax.legend(loc='best', fontsize=12, frameon=True, fancybox=True)
+        plt.tight_layout()
+
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        if show:
+            plt.show()
+        return fig
+
+    def plot_gap_detail_cylinder_all(self, save_path=None, show=True):
+        """
+        Детальный график распределения температуры в области зазора для ЦИЛИНДРА
+        для всех трех условий установки (а, б, в) на одном графике
+
+        Границы: от self.d/2 - 0.00002 м до self.d/2 + self.c + 0.00002 м
+        Шаг сетки по координате: 0.005 мм
+        """
+        self.setup_plot_style()
+        fig, ax = plt.subplots(figsize=(20, 10))
+
+        # Границы области просмотра в метрах
+        r_start_m = self.d / 2 - 0.00002  # на 0.02 мм левее границы твэла
+        r_end_m = self.d / 2 + self.c + 0.00002  # на 0.02 мм правее границы зазора
+
+        # Переводим в мм для отображения
+        r_start_mm = r_start_m * 1000
+        r_end_mm = r_end_m * 1000
+
+        # Создаем массив координат с шагом 0.005 мм (5e-6 м)
+        step_m = 5e-6  # 0.005 мм
+        r_detailed_m = np.arange(r_start_m, r_end_m + step_m, step_m)
+        r_detailed_mm = r_detailed_m * 1000
+
+        # Условия для построения
+        conditions = [
+            ('cylinder_ideal', 'ideal', 'Идеальный контакт (а)'),
+            ('cylinder_air', 'air', 'Воздушный зазор (б)'),
+            ('cylinder_helium', 'helium', 'Гелиевый зазор (в)')
+        ]
+
+        for result_key, color_key, label in conditions:
+            if result_key not in self.results:
+                continue
+
+            # Получаем аналитические решения
+            fuel_solution = self.ODE_fuel_rod_cylinder()
+
+            if result_key == 'cylinder_ideal':
+                clearance_solution = None
+                shell_solution = self.ODE_shell_cylinder()
+            elif result_key == 'cylinder_air':
+                clearance_solution, _ = self.ODE_clearance_cylinder_air()
+                shell_solution = self.ODE_shell_cylinder_air()
+            else:  # cylinder_helium
+                clearance_solution, _ = self.ODE_clearance_cylinder_helium()
+                shell_solution = self.ODE_shell_cylinder_he()
+
+            # Вычисляем температуры в детальных точках
+            t_detailed = np.zeros_like(r_detailed_m)
+
+            for i, r in enumerate(r_detailed_m):
+                if r <= self.d / 2:
+                    # Твэл
+                    t_func = sp.lambdify(self.r, fuel_solution.rhs, 'numpy')
+                    t_detailed[i] = t_func(r)
+                elif r <= self.d / 2 + self.c:
+                    # Зазор (только для случаев с зазором)
+                    if clearance_solution is not None:
+                        t_func = sp.lambdify(self.r, clearance_solution.rhs, 'numpy')
+                        t_detailed[i] = t_func(r)
+                    else:
+                        # Для идеального контакта продолжаем твэл
+                        t_func = sp.lambdify(self.r, fuel_solution.rhs, 'numpy')
+                        t_detailed[i] = t_func(r)
+                else:
+                    # Оболочка
+                    t_func = sp.lambdify(self.r, shell_solution.rhs, 'numpy')
+                    t_detailed[i] = t_func(r)
+
+            # Построение графика
+            ax.plot(r_detailed_mm, t_detailed,
+                    color=self.colors[color_key],
+                    linewidth=2,
+                    label=label,
+                    alpha=0.9)
+
+        # Настройка осей
+        ax.set_xlim(r_start_mm, r_end_mm)
+        ax.set_xlabel('r, мм', fontsize=14, fontname='Times New Roman')
+        ax.set_ylabel('t, °C', fontsize=14, fontname='Times New Roman')
+        ax.set_title('Детальное распределение температуры в области зазора (Цилиндр)',
+                     fontsize=14, fontname='Times New Roman')
+        ax.tick_params(axis='both', labelsize=12)
+        ax.grid(True, linestyle='--', alpha=0.3)
+
+        # Информация о параметрах
+        info_text = f'Толщина зазора: {self.c * 1000:.3f} мм\nШаг сетки: 0.005 мм'
+        ax.text(0.98, 0.02, info_text, transform=ax.transAxes, ha='right', va='bottom',
+                fontsize=11, fontname='Times New Roman',
+                bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
+
+        ax.legend(loc='best', fontsize=12, frameon=True, fancybox=True)
+        plt.tight_layout()
+
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        if show:
+            plt.show()
+        return fig
+
+    def plot_all(self, save_dir="./graphics", show=True):
+        """Построение всех графиков"""
+        import os
+        os.makedirs(save_dir, exist_ok=True)
+
+        print("\n" + "=" * 80)
+        print("ПОСТРОЕНИЕ ГРАФИКОВ")
+        print("=" * 80)
+        print(f"Графики сохраняются в папку: {save_dir}")
+
+        # 1-8. Основные графики...
+        print("\n1. Построение графика для пластины...")
+        self.plot_plane_distributions(
+            save_path=os.path.join(save_dir, "plane_distributions.png"),
+            show=show
+        )
+
+        print("2. Построение графика для цилиндра...")
+        self.plot_cylinder_distributions(
+            save_path=os.path.join(save_dir, "cylinder_distributions.png"),
+            show=show
+        )
+
+        print("3. Построение графика сравнения пластина/цилиндр (идеальный контакт)...")
+        self.plot_comparison_plane_cylinder(
+            condition='ideal',
+            save_path=os.path.join(save_dir, "comparison_ideal.png"),
+            show=show
+        )
+
+        print("4. Построение графика сравнения пластина/цилиндр (воздушный зазор)...")
+        self.plot_comparison_plane_cylinder(
+            condition='air',
+            save_path=os.path.join(save_dir, "comparison_air.png"),
+            show=show
+        )
+
+        print("5. Построение графика сравнения пластина/цилиндр (гелиевый зазор)...")
+        self.plot_comparison_plane_cylinder(
+            condition='helium',
+            save_path=os.path.join(save_dir, "comparison_helium.png"),
+            show=show
+        )
+
+        print("6. Построение совмещенных графиков...")
+        self.plot_all_conditions_comparison(
+            save_path=os.path.join(save_dir, "all_conditions_comparison.png"),
+            show=show
+        )
+
+        print("7. Построение графика с температурой плавления...")
+        self.plot_with_temperature_limit(
+            condition='ideal',
+            save_path=os.path.join(save_dir, "temperature_limit.png"),
+            show=show
+        )
+
+        print("8. Построение диаграммы критических мощностей...")
+        self.plot_qe_comparison(
+            save_path=os.path.join(save_dir, "qe_comparison.png"),
+            show=show
+        )
+
+        # 9. Детальный график зазора для пластины (все условия)
+        print("9. Построение детального графика области зазора для пластины...")
+        self.plot_gap_detail_plane_all(
+            save_path=os.path.join(save_dir, "gap_detail_plane_all.png"),
+            show=show
+        )
+
+        # 10. Детальный график зазора для цилиндра (все условия)
+        print("10. Построение детального графика области зазора для цилиндра...")
+        self.plot_gap_detail_cylinder_all(
+            save_path=os.path.join(save_dir, "gap_detail_cylinder_all.png"),
+            show=show
+        )
+
+        print("\n✅ Все графики построены!")
+        print(f"✅ Все графики сохранены в папку '{save_dir}'")
+
+
+# Основной блок (обновленный)
+if __name__ == "__main__":
+    sim = Simulation()
+
+    # 1. Запуск расчетов
+    results = sim.run_all_tables(num_points=50, save_csv=True)
+
+    # 2. Расчет q_e
+    print("\n" + "=" * 80)
+    print("ЗАПУСК РАСЧЕТА КРИТИЧЕСКОЙ МОЩНОСТИ")
+    print("=" * 80)
+    qe_results = sim.print_qe_results()
+    df_qe = sim.get_qe_dataframe()
+    print("\n" + "=" * 80)
+    print("ТАБЛИЦА КРИТИЧЕСКИХ МОЩНОСТЕЙ")
+    print("=" * 80)
+    print(df_qe.to_string(index=False))
+    df_qe.to_csv("critical_power.csv", index=False, encoding='utf-8-sig')
+    print("\n✓ Таблица критических мощностей сохранена в 'critical_power.csv'")
+
+    # 3. Построение графиков
+    plotter = Plotter()
+    plotter.results = sim.results
+    plotter.q_v = sim.q_v
+    plotter.t_m = sim.t_m
+    plotter.t_02_r = sim.t_02_r
+    plotter.lambda_f = sim.lambda_f
+    plotter.lambda_s = sim.lambda_s
+    plotter.lambda_a = sim.lambda_a
+    plotter.lambda_he = sim.lambda_he
+    plotter.delta = sim.delta
+    plotter.d = sim.d
+    plotter.c = sim.c
+    plotter.x = sim.x
+    plotter.r = sim.r
+
+    # Построение всех графиков с сохранением в папку "graphics"
+    plotter.plot_all(save_dir="./graphics", show=True)
