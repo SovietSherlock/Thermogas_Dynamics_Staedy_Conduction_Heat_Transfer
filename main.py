@@ -496,40 +496,45 @@ class Simulation(Math_Model):
         df.to_csv(filename, index=False, encoding='utf-8-sig')
         print(f"✓ Таблица сохранена в файл: {filename}")
 
-    def run_all_tables(self, num_points=50, save_csv=True):
+    def run_all_tables(self, num_points=50, save_csv=True, save_dir="tables"):
+        """Запуск всех расчетов и вывод таблиц"""
+        import os
+        os.makedirs(save_dir, exist_ok=True)
+
         print("\n" + "=" * 80)
         print("ЗАПУСК РАСЧЕТОВ ТЕМПЕРАТУРНЫХ ПОЛЕЙ")
         print("=" * 80)
+        print(f"Таблицы сохраняются в папку: {save_dir}")
 
         df1 = self.get_plane_ideal_contact_table(num_points)
         self.print_table(df1, "ПЛАСТИНА - ИДЕАЛЬНЫЙ КОНТАКТ (случай а)")
         if save_csv:
-            self.save_table_to_csv(df1, "plane_ideal_contact.csv")
+            self.save_table_to_csv(df1, "plane_ideal_contact.csv", save_dir)
 
         df2 = self.get_cylinder_ideal_contact_table(num_points)
         self.print_table(df2, "ЦИЛИНДР - ИДЕАЛЬНЫЙ КОНТАКТ (случай а)")
         if save_csv:
-            self.save_table_to_csv(df2, "cylinder_ideal_contact.csv")
+            self.save_table_to_csv(df2, "cylinder_ideal_contact.csv", save_dir)
 
         df3 = self.get_plane_air_gap_table(num_points)
         self.print_table(df3, "ПЛАСТИНА - ВОЗДУШНЫЙ ЗАЗОР (случай б)")
         if save_csv:
-            self.save_table_to_csv(df3, "plane_air_gap.csv")
+            self.save_table_to_csv(df3, "plane_air_gap.csv", save_dir)
 
         df4 = self.get_cylinder_air_gap_table(num_points)
         self.print_table(df4, "ЦИЛИНДР - ВОЗДУШНЫЙ ЗАЗОР (случай б)")
         if save_csv:
-            self.save_table_to_csv(df4, "cylinder_air_gap.csv")
+            self.save_table_to_csv(df4, "cylinder_air_gap.csv", save_dir)
 
         df5 = self.get_plane_helium_gap_table(num_points)
         self.print_table(df5, "ПЛАСТИНА - ГЕЛИЕВЫЙ ЗАЗОР (случай в)")
         if save_csv:
-            self.save_table_to_csv(df5, "plane_helium_gap.csv")
+            self.save_table_to_csv(df5, "plane_helium_gap.csv", save_dir)
 
         df6 = self.get_cylinder_helium_gap_table(num_points)
         self.print_table(df6, "ЦИЛИНДР - ГЕЛИЕВЫЙ ЗАЗОР (случай в)")
         if save_csv:
-            self.save_table_to_csv(df6, "cylinder_helium_gap.csv")
+            self.save_table_to_csv(df6, "cylinder_helium_gap.csv", save_dir)
 
         print("\n" + "=" * 80)
         print("✅ ВСЕ РАСЧЕТЫ ЗАВЕРШЕНЫ")
@@ -584,8 +589,9 @@ class Simulation(Math_Model):
 
         return qe_values
 
-    def get_qe_dataframe(self):
-        # Возвращает DataFrame с результатами расчета q_e
+    def get_qe_dataframe(self, save_csv=True, save_dir="tables"):
+        """Возвращает DataFrame с результатами расчета q_e и сохраняет в CSV"""
+        import os
         data = []
 
         cases = [
@@ -608,7 +614,23 @@ class Simulation(Math_Model):
                 })
 
         df = pd.DataFrame(data)
+
+        if save_csv:
+            os.makedirs(save_dir, exist_ok=True)
+            filepath = os.path.join(save_dir, "critical_power.csv")
+            df.to_csv(filepath, index=False, encoding='utf-8-sig')
+            print(f"\n✓ Таблица критических мощностей сохранена в: {filepath}")
+
         return df
+
+    def save_table_to_csv(self, df, filename, subdir="tables"):
+        """Сохранение таблицы в CSV файл в указанную подпапку"""
+        import os
+        # Создаем папку для таблиц, если её нет
+        os.makedirs(subdir, exist_ok=True)
+        filepath = os.path.join(subdir, filename)
+        df.to_csv(filepath, index=False, encoding='utf-8-sig')
+        print(f"✓ Таблица сохранена в файл: {filepath}")
 
 
 class Plotter(Simulation):
@@ -1286,7 +1308,7 @@ class Plotter(Simulation):
         ax.grid(True, linestyle='--', alpha=0.3)
 
         # Информация о параметрах
-        info_text = f'Толщина зазора: {self.c * 1000:.3f} мм\nШаг сетки: 0.005 мм'
+        info_text = f'Толщина зазора: {self.c * 1000:.3f} мм\nШаг сетки: 0.01 мм'
         ax.text(0.98, 0.02, info_text, transform=ax.transAxes, ha='right', va='bottom',
                 fontsize=11, fontname='Times New Roman',
                 bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
@@ -1387,7 +1409,7 @@ class Plotter(Simulation):
         ax.grid(True, linestyle='--', alpha=0.3)
 
         # Информация о параметрах
-        info_text = f'Толщина зазора: {self.c * 1000:.3f} мм\nШаг сетки: 0.005 мм'
+        info_text = f'Толщина зазора: {self.c * 1000:.3f} мм\nШаг сетки: 0.01 мм'
         ax.text(0.98, 0.02, info_text, transform=ax.transAxes, ha='right', va='bottom',
                 fontsize=11, fontname='Times New Roman',
                 bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
@@ -1482,27 +1504,25 @@ class Plotter(Simulation):
         print(f"✅ Все графики сохранены в папку '{save_dir}'")
 
 
-# Основной блок (обновленный)
+# Основной блок запуска
 if __name__ == "__main__":
     sim = Simulation()
 
-    # 1. Запуск расчетов
-    results = sim.run_all_tables(num_points=50, save_csv=True)
+    # 1. Запуск расчетов (таблицы сохранятся в папку "tables")
+    results = sim.run_all_tables(num_points=50, save_csv=True, save_dir="tables")
 
-    # 2. Расчет q_e
+    # 2. Расчет q_e (таблица сохранится в папку "tables")
     print("\n" + "=" * 80)
     print("ЗАПУСК РАСЧЕТА КРИТИЧЕСКОЙ МОЩНОСТИ")
     print("=" * 80)
     qe_results = sim.print_qe_results()
-    df_qe = sim.get_qe_dataframe()
+    df_qe = sim.get_qe_dataframe(save_csv=True, save_dir="tables")
     print("\n" + "=" * 80)
     print("ТАБЛИЦА КРИТИЧЕСКИХ МОЩНОСТЕЙ")
     print("=" * 80)
     print(df_qe.to_string(index=False))
-    df_qe.to_csv("critical_power.csv", index=False, encoding='utf-8-sig')
-    print("\n✓ Таблица критических мощностей сохранена в 'critical_power.csv'")
 
-    # 3. Построение графиков
+    # 3. Построение графиков (сохраняются в папку "graphics")
     plotter = Plotter()
     plotter.results = sim.results
     plotter.q_v = sim.q_v
