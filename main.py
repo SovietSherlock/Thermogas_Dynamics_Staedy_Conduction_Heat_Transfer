@@ -222,20 +222,19 @@ class  Math_Model(Init_Parameters):
 
     def volumetric_heat_release_plane(self):
         # функция описания мат модели объемной плотности тепловыделения для пластинчатой модели системы с условием установки а):
-        numerator = 8*self.lambda_f*(self.t_m - self.t_02_r)
-        denominator = self.d**2
-        q_e = numerator/denominator
-        t_c_r = (q_e*self.d**2)/4*self.lambda_f + self.t_m
-        return q_e, t_c_r
+        numerator = self.t_m - self.t_02_r
+        denominator = (self.d ** 2 / (8 * self.lambda_f)) + (self.d * self.delta / (2 * self.lambda_s))
+        q_e = numerator / denominator
+        t_01 = self.t_02_r + (q_e * self.d * self.delta) / (2 * self.lambda_s)
+        return q_e, t_01
 
     def volumetric_heat_release_cylinder(self):
         # функция описания мат модели объемной плотности тепловыделения для цилиндрической модели системы с условием установки а):
-        numerator = 16*self.lambda_f*(self.t_m - self.t_02_r)
-        denominator = self.d**2
+        numerator = self.t_m - self.t_02_r
+        denominator = (self.d ** 2 / (16 * self.lambda_f)) + (self.d ** 2 / (8 * self.lambda_s)) * math.log(
+            1 + 2 * self.delta / self.d)
         q_e = numerator / denominator
-        numerator_1 = (q_e*self.d**2*sp.log((self.d + 2*self.delta) / self.d))
-        denominator_1 = 2*self.lambda_s
-        t_c_r = self.t_02_r - numerator_1 / denominator_1
+        t_c_r = self.t_02_r + (q_e * self.d**2/(8*self.lambda_s)) * math.log(1 + 2*self.delta/self.d)
         return q_e, t_c_r
 
     def volumetric_heat_release_plane_air(self):
@@ -243,9 +242,10 @@ class  Math_Model(Init_Parameters):
         numerator = self.t_m - self.t_02_r
         denominator = (self.d**2/(8*self.lambda_f)) + (self.d*self.c/(2*self.lambda_a)) + (self.d*self.delta/(2*self.lambda_s))
         q_e = numerator / denominator
-        t_c_r = (q_e * self.d ** 2) / 4 * self.lambda_f + self.t_m
-        t_c0_r = (q_e * self.d * self.c) / 4 * self.lambda_a + t_c_r
-        return q_e, t_c_r, t_c0_r
+        t_c_r = self.t_02_r + (q_e * self.d * self.delta) / (2 * self.lambda_s) + (q_e * self.d * self.c) / (
+                    2 * self.lambda_a)
+        t_01_r = self.t_02_r + (q_e * self.d * self.delta) / (2 * self.lambda_s)
+        return q_e, t_c_r, t_01_r
 
     def volumetric_heat_release_cylinder_air(self):
         # функция описания мат модели объемной плотности тепловыделения для цилиндрической модели системы с условием установки б):
@@ -254,16 +254,22 @@ class  Math_Model(Init_Parameters):
                        + (self.d ** 2 / (8 * self.lambda_a)) * math.log(1 + 2 * self.c / self.d)
                        + (self.d ** 2 / (8 * self.lambda_s)) * math.log(1 + 2 * self.delta / (self.d + 2 * self.c)))
         q_e = numerator / denominator
-        return q_e
+        t_c_r = self.t_02_r \
+                + (q_e * self.d ** 2 / (8 * self.lambda_s)) * math.log(1 + 2 * self.delta / (self.d + 2 * self.c)) \
+                + (q_e * self.d ** 2 / (8 * self.lambda_a)) * math.log(1 + 2 * self.c / self.d)
+        t_01_r = self.t_02_r + (q_e * self.d ** 2 / (8 * self.lambda_s)) * math.log(
+            1 + 2 * self.delta / (self.d + 2 * self.c))
+        return q_e, t_c_r, t_01_r
 
     def volumetric_heat_release_plane_helium(self):
         # функция описания мат модели объемной плотности тепловыделения для пластинчатой модели системы с условием установки в):
         numerator = self.t_m - self.t_02_r
         denominator = (self.d**2/(8*self.lambda_f)) + (self.d*self.c/(2*self.lambda_he)) + (self.d*self.delta/(2*self.lambda_s))
         q_e = numerator / denominator
-        t_c_r = (q_e * self.d ** 2) / 4 * self.lambda_f + self.t_m
-        t_c0_r = (q_e * self.d * self.c) / 4 * self.lambda_he + t_c_r
-        return q_e, t_c_r, t_c0_r
+        t_c_r = self.t_02_r + (q_e * self.d * self.delta) / (2 * self.lambda_s) + (q_e * self.d * self.c) / (
+                    2 * self.lambda_he)
+        t_01_r = self.t_02_r + (q_e * self.d * self.delta) / (2 * self.lambda_s)
+        return q_e, t_c_r, t_01_r
 
 
     def volumetric_heat_release_cylinder_helium(self):
@@ -273,7 +279,12 @@ class  Math_Model(Init_Parameters):
                        + (self.d ** 2 / (8 * self.lambda_he)) * math.log(1 + 2 * self.c / self.d)
                        + (self.d ** 2 / (8 * self.lambda_s)) * math.log(1 + 2 * self.delta / (self.d + 2 * self.c)))
         q_e = numerator / denominator
-        return q_e
+        t_c_r = self.t_02_r \
+                + (q_e * self.d ** 2 / (8 * self.lambda_s)) * math.log(1 + 2 * self.delta / (self.d + 2 * self.c)) \
+                + (q_e * self.d ** 2 / (8 * self.lambda_he)) * math.log(1 + 2 * self.c / self.d)
+        t_01_r = self.t_02_r + (q_e * self.d ** 2 / (8 * self.lambda_s)) * math.log(
+            1 + 2 * self.delta / (self.d + 2 * self.c))
+        return q_e, t_c_r, t_01_r
 
 class Simulation(Math_Model):
     # Класс аналитического решения дифференциальных уравнений при заданных начальных условиях
@@ -501,9 +512,13 @@ class Simulation(Math_Model):
         print(f"Всего точек: {len(df)}")
         print(f"Диапазон температур: {df['Температура, °C'].min():.1f} ... {df['Температура, °C'].max():.1f} °C")
 
-    def save_table_to_csv(self, df, filename):
-        df.to_csv(filename, index=False, encoding='utf-8-sig')
-        print(f"✓ Таблица сохранена в файл: {filename}")
+    def save_table_to_csv(self, df, filename, subdir="tables"):
+        """Сохранение таблицы в CSV файл в указанную подпапку"""
+        import os
+        os.makedirs(subdir, exist_ok=True)
+        filepath = os.path.join(subdir, filename)
+        df.to_csv(filepath, index=False, encoding='utf-8-sig')
+        print(f"✓ Таблица сохранена в файл: {filepath}")
 
     def run_all_tables(self, num_points=50, save_csv=True, save_dir="tables"):
         """Запуск всех расчетов и вывод таблиц"""
@@ -553,7 +568,7 @@ class Simulation(Math_Model):
         # ==================== РАСЧЕТ КРИТИЧЕСКОЙ МОЩНОСТИ q_e ====================
 
     def print_qe_results(self):
-        # Вывод результатов расчета критической мощности
+        # Вывод результатов расчета критической мощности с температурами на стенках
         print("\n" + "=" * 70)
         print("РЕЗУЛЬТАТЫ РАСЧЕТА КРИТИЧЕСКОЙ МОЩНОСТИ q_e")
         print("=" * 70)
@@ -576,30 +591,27 @@ class Simulation(Math_Model):
             'Цилиндр, гелиевый зазор': self.volumetric_heat_release_cylinder_helium()
         }
 
-        for name, qe in qe_values.items():
+        for name, result in qe_values.items():
             print(f"\n{name}:")
-            print(f"  q_e = {qe:.2e} Вт/м³ = {qe / 1e6:.2f} МВт/м³")
+            if result is not None:
+                q_e = result[0]
+                print(f"  q_e = {q_e:.2e} Вт/м³ = {q_e / 1e6:.2f} МВт/м³")
 
-        # Сравнение с текущим q_v
-        print("\n" + "-" * 50)
-        print("СРАВНЕНИЕ С ТЕКУЩИМ РЕЖИМОМ:")
-        print("-" * 50)
-        print(f"Текущая мощность: q_v = {self.q_v / 1e6:.2f} МВт/м³")
+                if len(result) == 2:  # Идеальный контакт (q_e, t_01)
+                    t_01 = result[1]
+                    print(f"  Температура на границе твэл-оболочка (t_01) = {t_01:.1f} °C")
+                    print(f"  Температура на наружной поверхности оболочки (t_02) = {self.t_02_r:.1f} °C")
 
-        for name, qe in qe_values.items():
-            margin = qe / self.q_v
-            if margin > 1.2:
-                status = "✅ БЕЗОПАСНО"
-            elif margin > 1.0:
-                status = "⚠️ ПРЕДЕЛЬНО"
-            else:
-                status = "❌ ОПАСНО"
-            print(f"  {name:35}: запас = {margin:.3f} → {status}")
+                elif len(result) == 3:  # С зазором (q_e, t_c_r, t_01_r)
+                    t_c_r, t_01_r = result[1], result[2]
+                    print(f"  Температура на границе твэл-зазор (t_01) = {t_c_r:.1f} °C")
+                    print(f"  Температура на границе зазор-оболочка (t_02) = {t_01_r:.1f} °C")
+                    print(f"  Температура на наружной поверхности оболочки (t_03) = {self.t_02_r:.1f} °C")
 
         return qe_values
 
     def get_qe_dataframe(self, save_csv=True, save_dir="tables"):
-        """Возвращает DataFrame с результатами расчета q_e и сохраняет в CSV"""
+        """Возвращает DataFrame с результатами расчета q_e и температурами на стенках, сохраняет в CSV"""
         import os
         data = []
 
@@ -612,15 +624,33 @@ class Simulation(Math_Model):
             ('Цилиндр', 'Гелиевый зазор', self.volumetric_heat_release_cylinder_helium())
         ]
 
-        for geometry, contact, qe in cases:
-            if qe is not None:
-                data.append({
-                    'Геометрия': geometry,
-                    'Тип контакта': contact,
-                    'q_e, Вт/м³': f"{qe:.2e}",
-                    'q_e, МВт/м³': round(qe / 1e6, 2),
-                    'Запас прочности': round(qe / self.q_v, 3)
-                })
+        for geometry, contact, result in cases:
+            if result is not None:
+                q_e = result[0]
+
+                if len(result) == 2:  # Идеальный контакт
+                    t_01 = result[1]
+                    data.append({
+                        'Геометрия': geometry,
+                        'Тип контакта': contact,
+                        'q_e, Вт/м³': f"{q_e:.2e}",
+                        'q_e, МВт/м³': round(q_e / 1e6, 2),
+                        't_01 (твэл-оболочка), °C': round(t_01, 2),
+                        't_02 (зазор-оболочка), °C': '-',
+                        't_03 (оболочка), °C': round(self.t_02_r, 2)
+                    })
+
+                elif len(result) == 3:  # С зазором
+                    t_c_r, t_01_r = result[1], result[2]
+                    data.append({
+                        'Геометрия': geometry,
+                        'Тип контакта': contact,
+                        'q_e, Вт/м³': f"{q_e:.2e}",
+                        'q_e, МВт/м³': round(q_e / 1e6, 2),
+                        't_01 (твэл-зазор), °C': round(t_c_r, 2),
+                        't_02 (зазор-оболочка), °C': round(t_01_r, 2),
+                        't_03 (оболочка), °C': round(self.t_02_r, 2)
+                    })
 
         df = pd.DataFrame(data)
 
@@ -631,15 +661,6 @@ class Simulation(Math_Model):
             print(f"\n✓ Таблица критических мощностей сохранена в: {filepath}")
 
         return df
-
-    def save_table_to_csv(self, df, filename, subdir="tables"):
-        """Сохранение таблицы в CSV файл в указанную подпапку"""
-        import os
-        # Создаем папку для таблиц, если её нет
-        os.makedirs(subdir, exist_ok=True)
-        filepath = os.path.join(subdir, filename)
-        df.to_csv(filepath, index=False, encoding='utf-8-sig')
-        print(f"✓ Таблица сохранена в файл: {filepath}")
 
 
 class Plotter(Simulation):
@@ -971,13 +992,14 @@ class Plotter(Simulation):
         """Построение столбчатой диаграммы сравнения критических мощностей"""
         self.setup_plot_style()
 
+        # Извлекаем только q_e (первый элемент кортежа)
         qe_values = {
-            'Пластина\nидеальный': self.volumetric_heat_release_plane(),
-            'Пластина\nвоздух': self.volumetric_heat_release_plane_air(),
-            'Пластина\nгелий': self.volumetric_heat_release_plane_helium(),
-            'Цилиндр\nидеальный': self.volumetric_heat_release_cylinder(),
-            'Цилиндр\nвоздух': self.volumetric_heat_release_cylinder_air(),
-            'Цилиндр\nгелий': self.volumetric_heat_release_cylinder_helium()
+            'Пластина\nидеальный': self.volumetric_heat_release_plane()[0],
+            'Пластина\nвоздух': self.volumetric_heat_release_plane_air()[0],
+            'Пластина\nгелий': self.volumetric_heat_release_plane_helium()[0],
+            'Цилиндр\nидеальный': self.volumetric_heat_release_cylinder()[0],
+            'Цилиндр\nвоздух': self.volumetric_heat_release_cylinder_air()[0],
+            'Цилиндр\nгелий': self.volumetric_heat_release_cylinder_helium()[0]
         }
 
         categories = list(qe_values.keys())
@@ -1012,7 +1034,6 @@ class Plotter(Simulation):
         ax.tick_params(axis='y', labelsize=12)
         ax.grid(True, linestyle='--', alpha=0.3, axis='y')
 
-        # Поворачиваем подписи на оси X для лучшей читаемости
         for label in ax.get_xticklabels():
             label.set_fontname('Times New Roman')
             label.set_fontsize(11)
@@ -1025,69 +1046,6 @@ class Plotter(Simulation):
         if show:
             plt.show()
         return fig
-
-    def plot_all(self, save_dir=None, show=True):
-        """Построение всех графиков"""
-        print("\n" + "=" * 80)
-        print("ПОСТРОЕНИЕ ГРАФИКОВ")
-        print("=" * 80)
-
-        # Создаем папку для графиков, если указана
-        if save_dir:
-            import os
-            os.makedirs(save_dir, exist_ok=True)
-
-        print("\n1. Построение графика для пластины...")
-        self.plot_plane_distributions(
-            save_path=f"{save_dir}/plane_distributions.png" if save_dir else None,
-            show=show
-        )
-
-        print("2. Построение графика для цилиндра...")
-        self.plot_cylinder_distributions(
-            save_path=f"{save_dir}/cylinder_distributions.png" if save_dir else None,
-            show=show
-        )
-
-        print("3. Построение графика сравнения пластина/цилиндр (идеальный контакт)...")
-        self.plot_comparison_plane_cylinder(
-            condition='ideal',
-            save_path=f"{save_dir}/comparison_ideal.png" if save_dir else None,
-            show=show
-        )
-
-        print("4. Построение графика сравнения пластина/цилиндр (воздушный зазор)...")
-        self.plot_comparison_plane_cylinder(
-            condition='air',
-            save_path=f"{save_dir}/comparison_air.png" if save_dir else None,
-            show=show
-        )
-
-        print("5. Построение графика сравнения пластина/цилиндр (гелиевый зазор)...")
-        self.plot_comparison_plane_cylinder(
-            condition='helium',
-            save_path=f"{save_dir}/comparison_helium.png" if save_dir else None,
-            show=show
-        )
-
-        print("6. Построение совмещенных графиков...")
-        self.plot_all_conditions_comparison(
-            save_path=f"{save_dir}/all_conditions_comparison.png" if save_dir else None,
-            show=show
-        )
-
-        print("7. Построение графика с температурой плавления...")
-        self.plot_with_temperature_limit(
-            condition='ideal',
-            save_path=f"{save_dir}/temperature_limit.png" if save_dir else None,
-            show=show
-        )
-
-        print("8. Построение диаграммы критических мощностей...")
-        self.plot_qe_comparison(
-            save_path=f"{save_dir}/qe_comparison.png" if save_dir else None,
-            show=show
-        )
 
     def plot_gap_detail_plane(self, condition='air', save_path=None, show=True):
         """
