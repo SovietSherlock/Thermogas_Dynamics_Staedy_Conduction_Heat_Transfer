@@ -513,7 +513,7 @@ class Simulation(Math_Model):
         print(f"Диапазон температур: {df['Температура, °C'].min():.1f} ... {df['Температура, °C'].max():.1f} °C")
 
     def save_table_to_csv(self, df, filename, subdir="tables"):
-        """Сохранение таблицы в CSV файл в указанную подпапку"""
+        # Сохранение таблицы в CSV файл в указанную подпапку
         import os
         os.makedirs(subdir, exist_ok=True)
         filepath = os.path.join(subdir, filename)
@@ -521,7 +521,7 @@ class Simulation(Math_Model):
         print(f"✓ Таблица сохранена в файл: {filepath}")
 
     def run_all_tables(self, num_points=50, save_csv=True, save_dir="tables"):
-        """Запуск всех расчетов и вывод таблиц"""
+        # Запуск всех расчетов и вывод таблиц
         import os
         os.makedirs(save_dir, exist_ok=True)
 
@@ -611,7 +611,7 @@ class Simulation(Math_Model):
         return qe_values
 
     def get_qe_dataframe(self, save_csv=True, save_dir="tables"):
-        """Возвращает DataFrame с результатами расчета q_e и температурами на стенках, сохраняет в CSV"""
+        # Возвращает DataFrame с результатами расчета q_e и температурами на стенках, сохраняет в CSV
         import os
         data = []
 
@@ -684,7 +684,7 @@ class Plotter(Simulation):
         }
 
     def setup_plot_style(self):
-        """Настройка стилей оформления графика"""
+        # Настройка стилей оформления графика
         plt.rcParams['font.family'] = 'Times New Roman'
         plt.rcParams['font.size'] = 14
         plt.rcParams['axes.linewidth'] = 2
@@ -697,7 +697,7 @@ class Plotter(Simulation):
         plt.rcParams['mathtext.bf'] = 'Times New Roman:bold'
 
     def format_axes(self, ax, xlabel, ylabel, title, xlim=None, ylim=None):
-        """Форматирование осей графика"""
+        # Форматирование осей графика
         ax.set_xlabel(xlabel, fontsize=14, fontname='Times New Roman')
         ax.set_ylabel(ylabel, fontsize=14, fontname='Times New Roman')
         ax.set_title(title, fontsize=14, fontname='Times New Roman')
@@ -713,7 +713,7 @@ class Plotter(Simulation):
             spine.set_linewidth(2)
 
     def get_label(self, label_type):
-        """Возвращает подпись с нужным шрифтом"""
+        # Возвращает подпись с нужным шрифтом
         labels = {
             'x': 'x, мм',
             'r': 'r, мм',
@@ -724,7 +724,7 @@ class Plotter(Simulation):
         return labels.get(label_type, label_type)
 
     def plot_plane_distributions(self, save_path=None, show=True):
-        """Построение графика распределения температуры в пластине"""
+        # Построение графика распределения температуры в пластине
         if 'plane_ideal' not in self.results:
             print("Ошибка: сначала запустите расчеты (run_all_tables)")
             return None
@@ -767,7 +767,7 @@ class Plotter(Simulation):
         return fig
 
     def plot_cylinder_distributions(self, save_path=None, show=True):
-        """Построение графика распределения температуры в цилиндре"""
+        # Построение графика распределения температуры в цилиндре
         if 'cylinder_ideal' not in self.results:
             print("Ошибка: сначала запустите расчеты (run_all_tables)")
             return None
@@ -810,7 +810,7 @@ class Plotter(Simulation):
         return fig
 
     def plot_comparison_plane_cylinder(self, condition='ideal', save_path=None, show=True):
-        """Сравнение распределения температуры в пластине и цилиндре"""
+        # Сравнение распределения температуры в пластине и цилиндре
         condition_map = {
             'ideal': ('plane_ideal', 'cylinder_ideal'),
             'air': ('plane_air', 'cylinder_air'),
@@ -866,7 +866,7 @@ class Plotter(Simulation):
         return fig
 
     def plot_all_conditions_comparison(self, save_path=None, show=True):
-        """Построение двух графиков (пластина и цилиндр) рядом"""
+        # Построение двух графиков (пластина и цилиндр) рядом
         if 'plane_ideal' not in self.results:
             print("Ошибка: сначала запустите расчеты (run_all_tables)")
             return None
@@ -931,7 +931,7 @@ class Plotter(Simulation):
         return fig
 
     def plot_with_temperature_limit(self, condition='ideal', save_path=None, show=True):
-        """Построение графика с отображением предела температуры плавления"""
+        # Построение графика с отображением предела температуры плавления
         condition_map = {
             'ideal': 'plane_ideal',
             'air': 'plane_air',
@@ -989,7 +989,7 @@ class Plotter(Simulation):
         return fig
 
     def plot_qe_comparison(self, save_path=None, show=True):
-        """Построение столбчатой диаграммы сравнения критических мощностей"""
+        # Построение столбчатой диаграммы сравнения критических мощностей
         self.setup_plot_style()
 
         # Извлекаем только q_e (первый элемент кортежа)
@@ -1048,21 +1048,7 @@ class Plotter(Simulation):
         return fig
 
     def plot_gap_detail_plane(self, condition='air', save_path=None, show=True):
-        """
-        Детальный график распределения температуры в области зазора для ПЛАСТИНЫ
-        Увеличенный фрагмент в границах:
-        от self.d/2 - 0.0001 м до self.d/2 + self.c + 0.0001 м
-        Шаг сетки по координате 0.01 мм
 
-        Parameters:
-        -----------
-        condition : str
-            'air' или 'helium' - какой зазор показать
-        save_path : str, optional
-            Путь для сохранения графика
-        show : bool
-            Показывать график
-        """
         if condition == 'air':
             result_key = 'plane_air'
             gap_color = self.colors['air']
@@ -1189,13 +1175,7 @@ class Plotter(Simulation):
         return fig
 
     def plot_gap_detail_plane_all(self, save_path=None, show=True):
-        """
-        Детальный график распределения температуры в области зазора для ПЛАСТИНЫ
-        для всех трех условий установки (а, б, в) на одном графике
 
-        Границы: от self.d/2 - 0.00002 м до self.d/2 + self.c + 0.00002 м
-        Шаг сетки по координате: 0.005 мм
-        """
         self.setup_plot_style()
         fig, ax = plt.subplots(figsize=(20, 10))
 
@@ -1290,13 +1270,7 @@ class Plotter(Simulation):
         return fig
 
     def plot_gap_detail_cylinder_all(self, save_path=None, show=True):
-        """
-        Детальный график распределения температуры в области зазора для ЦИЛИНДРА
-        для всех трех условий установки (а, б, в) на одном графике
 
-        Границы: от self.d/2 - 0.00002 м до self.d/2 + self.c + 0.00002 м
-        Шаг сетки по координате: 0.005 мм
-        """
         self.setup_plot_style()
         fig, ax = plt.subplots(figsize=(20, 10))
 
@@ -1391,7 +1365,7 @@ class Plotter(Simulation):
         return fig
 
     def plot_all(self, save_dir="./graphics", show=True):
-        """Построение всех графиков"""
+        # Построение всех графиков
         import os
         os.makedirs(save_dir, exist_ok=True)
 
