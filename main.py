@@ -233,7 +233,10 @@ class  Math_Model(Init_Parameters):
         numerator = 16*self.lambda_f*(self.t_m - self.t_02_r)
         denominator = self.d**2
         q_e = numerator / denominator
-        return q_e
+        numerator_1 = (q_e*self.d**2*sp.log((self.d + 2*self.delta) / self.d))
+        denominator_1 = 2*self.lambda_s
+        t_c_r = self.t_02_r - numerator_1 / denominator_1
+        return q_e, t_c_r
 
     def volumetric_heat_release_plane_air(self):
         # функция описания мат модели объемной плотности тепловыделения для пластинчатой модели системы с условием установки б):
@@ -241,7 +244,7 @@ class  Math_Model(Init_Parameters):
         denominator = (self.d**2/(8*self.lambda_f)) + (self.d*self.c/(2*self.lambda_a)) + (self.d*self.delta/(2*self.lambda_s))
         q_e = numerator / denominator
         t_c_r = (q_e * self.d ** 2) / 4 * self.lambda_f + self.t_m
-        t_c0_r = (q_e * self.d ** 2) / 4 * self.lambda_f + t_c_r
+        t_c0_r = (q_e * self.d * self.c) / 4 * self.lambda_a + t_c_r
         return q_e, t_c_r, t_c0_r
 
     def volumetric_heat_release_cylinder_air(self):
@@ -259,7 +262,7 @@ class  Math_Model(Init_Parameters):
         denominator = (self.d**2/(8*self.lambda_f)) + (self.d*self.c/(2*self.lambda_he)) + (self.d*self.delta/(2*self.lambda_s))
         q_e = numerator / denominator
         t_c_r = (q_e * self.d ** 2) / 4 * self.lambda_f + self.t_m
-        t_c0_r = (q_e * self.d ** 2) / 4 * self.lambda_f + t_c_r
+        t_c0_r = (q_e * self.d * self.c) / 4 * self.lambda_he + t_c_r
         return q_e, t_c_r, t_c0_r
 
 
