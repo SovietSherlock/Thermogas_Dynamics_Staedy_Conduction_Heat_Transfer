@@ -225,7 +225,8 @@ class  Math_Model(Init_Parameters):
         numerator = 8*self.lambda_f*(self.t_m - self.t_02_r)
         denominator = self.d**2
         q_e = numerator/denominator
-        return q_e
+        t_c_r = (q_e*self.d**2)/4*self.lambda_f + self.t_m
+        return q_e, t_c_r
 
     def volumetric_heat_release_cylinder(self):
         # функция описания мат модели объемной плотности тепловыделения для цилиндрической модели системы с условием установки а):
@@ -239,7 +240,9 @@ class  Math_Model(Init_Parameters):
         numerator = self.t_m - self.t_02_r
         denominator = (self.d**2/(8*self.lambda_f)) + (self.d*self.c/(2*self.lambda_a)) + (self.d*self.delta/(2*self.lambda_s))
         q_e = numerator / denominator
-        return q_e
+        t_c_r = (q_e * self.d ** 2) / 4 * self.lambda_f + self.t_m
+        t_c0_r = (q_e * self.d ** 2) / 4 * self.lambda_f + t_c_r
+        return q_e, t_c_r, t_c0_r
 
     def volumetric_heat_release_cylinder_air(self):
         # функция описания мат модели объемной плотности тепловыделения для цилиндрической модели системы с условием установки б):
@@ -255,7 +258,10 @@ class  Math_Model(Init_Parameters):
         numerator = self.t_m - self.t_02_r
         denominator = (self.d**2/(8*self.lambda_f)) + (self.d*self.c/(2*self.lambda_he)) + (self.d*self.delta/(2*self.lambda_s))
         q_e = numerator / denominator
-        return q_e
+        t_c_r = (q_e * self.d ** 2) / 4 * self.lambda_f + self.t_m
+        t_c0_r = (q_e * self.d ** 2) / 4 * self.lambda_f + t_c_r
+        return q_e, t_c_r, t_c0_r
+
 
     def volumetric_heat_release_cylinder_helium(self):
         # функция описания мат модели объемной плотности тепловыделения для цилиндрической модели системы с условием установки в):
